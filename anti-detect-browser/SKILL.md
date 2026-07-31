@@ -1,25 +1,31 @@
 ---
 name: anti-detect-browser
-description: Launch and manage anti-detect browsers with unique real-device fingerprints for multi-account operations, web scraping, ad verification, and AI agent automation. Use when the user needs to run multiple browser sessions with distinct identities, manage persistent browser profiles, automate tasks across accounts, or build agentic workflows that require browser fingerprint isolation. Also use when the user mentions antibrow, anti-detect browser, or fingerprint browser.
+description: Launch and manage anti-detect browsers with real, per-profile device fingerprints for multi-account operations, browser automation, web scraping, and AI agent workflows. Use when the user needs to run multiple isolated browser sessions with distinct fingerprints and persistent profiles (cookies, storage, login state), automate web scraping or data collection, verify ads and content across regions or device types, manage multiple social media or e-commerce accounts from one machine, or run cross-browser or cross-device QA testing. Also use when the user mentions 'antibrow', 'anti-detect browser', 'fingerprint browser', 'multi-account browser', 'web scraping browser', 'Playwright fingerprint', or 'residential proxy browser'. For an AI agent to drive the browser itself via MCP tool calls with no code to write, see browser-mcp-agent.
 ---
 
 # Anti-Detect Browser SDK
 
-Launch Chromium instances with real-device fingerprints via standard Playwright APIs. Each browser gets a unique, consistent digital identity - undetectable by anti-bot systems.
+Launch Chromium instances with real-device fingerprints via standard Playwright APIs. Each browser launch gets a real, consistent device fingerprint that stays stable across sessions and is distinct per profile.
 
 - npm package: `anti-detect-browser`
 - Dashboard: `https://antibrow.com`
 - REST API base: `https://antibrow.com/api/v1/`
 - Documentation: `https://antibrow.com/docs`
 
+## Why antibrow
+
+- Fingerprints are captured from real devices, not synthetically generated - 30+ categories, 500+ parameters
+- Local profiles persist indefinitely at no extra cost, unlike cloud browser services billed per concurrent session
+- Drop-in Playwright API - existing scripts work with `applyFingerprint()`, no new SDK to learn
+- Runs as an MCP server so AI agents drive it directly via tool calls
+
 ## When to use
 
-- **Multi-account management** - Run dozens of social media, e-commerce, or ad accounts on the same machine without linking. Each browser profile has its own fingerprint, cookies, and storage.
-- **Web scraping & data collection** - Rotate fingerprints across scraping sessions to avoid detection and fingerprint-IP correlation bans.
+- **Multi-account management** - Run dozens of social media, e-commerce, or ad accounts on the same machine, each with its own isolated profile, fingerprint, cookies, and storage.
+- **Web scraping & data collection** - Rotate fingerprints and proxies across scraping sessions so each session presents a consistent, independent device profile.
 - **Ad verification & competitive intelligence** - View ads and content as different user profiles across regions and device types.
 - **Social media automation** - Manage multiple accounts with persistent profiles that survive browser restarts.
 - **E-commerce operations** - Operate multiple seller/buyer accounts with fully isolated browser environments.
-- **AI agent browser control** - Run as an MCP server so AI agents (Claude, GPT, etc.) can launch, navigate, and interact with anti-detect browsers through tool calls.
 - **QA & cross-environment testing** - Test how your site behaves under different browser fingerprints, screen sizes, and device configurations.
 
 ## Quick start
@@ -31,13 +37,13 @@ npm install anti-detect-browser
 ```typescript
 import { AntiDetectBrowser } from 'anti-detect-browser'
 
-// Get your API key at https://antibrow.com
-const ab = new AntiDetectBrowser({ key: 'your-api-key' })
+// Get your API key at https://antibrow.com — store it in an env var, never hardcode it
+const ab = new AntiDetectBrowser({ key: process.env.ANTIBROW_API_KEY })
 
 const { browser, page } = await ab.launch({
   fingerprint: { tags: ['Windows 10', 'Chrome'] },
   profile: 'my-account-01',
-  proxy: 'http://user:pass@host:port',
+  proxy: process.env.PROXY_URL, // e.g. 'http://user:pass@host:port' — load from config, don't hardcode
 })
 
 // Standard Playwright API from here — zero learning curve
@@ -100,11 +106,11 @@ await ab.launch({
 
 ### Proxy integration
 
-Route each browser through a different proxy for geo-targeting or IP rotation.
+Route each browser through a different proxy for geo-targeting or IP rotation. Proxy URL format: `socks5://user:pass@host:port` — load the actual value from an env var or secrets store, don't hardcode it.
 
 ```typescript
 await ab.launch({
-  proxy: 'socks5://user:pass@us-proxy.example.com:1080',
+  proxy: process.env.US_PROXY_URL,
   fingerprint: { tags: ['Windows 10', 'Chrome'] },
   profile: 'us-account',
 })
@@ -136,7 +142,7 @@ const browser = await chromium.launch()
 const context = await browser.newContext()
 
 await applyFingerprint(context, {
-  key: 'your-api-key',
+  key: process.env.ANTIBROW_API_KEY,
   fingerprint: { tags: ['Windows 10', 'Chrome'] },
   profile: 'my-profile',
 })
@@ -147,35 +153,7 @@ await page.goto('https://example.com')
 
 ## MCP server mode — for AI agents
 
-Run as an MCP server so AI agents can launch and control fingerprint browsers via tool calls.
-
-```json
-{
-  "mcpServers": {
-    "anti-detect-browser": {
-      "command": "npx",
-      "args": ["anti-detect-browser", "--mcp"],
-      "env": { "ANTI_DETECT_BROWSER_KEY": "your-api-key" }
-    }
-  }
-}
-```
-
-Available tools:
-
-| Tool | What it does |
-|------|-------------|
-| `launch_browser` | Start a new fingerprint browser session |
-| `close_browser` | Close a running session |
-| `navigate` | Go to a URL |
-| `screenshot` | Capture the current screen |
-| `click` / `fill` | Interact with page elements |
-| `evaluate` | Run JavaScript on the page |
-| `get_content` | Extract text from the page or a specific element |
-| `start_live_view` | Stream the browser screen to `https://antibrow.com` dashboard |
-| `stop_live_view` | Stop live streaming |
-| `list_sessions` | List all running browser instances |
-| `list_profiles` | List all saved profiles |
+`anti-detect-browser` can also run as an MCP server so an agent drives the browser directly via tool calls, without writing any of the SDK code below. Setup, the full tool list, and example agent-driven flows live in the **`browser-mcp-agent`** skill.
 
 ## Workflow examples
 
@@ -271,11 +249,11 @@ Query parameters for `/fingerprints/fetch`: `tags`, `id`, `minBrowserVersion`, `
   "width": 1920,
   "height": 1080,
   "createdAt": "2025-01-01T00:00:00.000Z",
-  "dataUrl": "https://r2.example.com/fingerprints/..."
+  "dataUrl": "https://cdn.example.com/fingerprints/..."
 }
 ```
 
-The `dataUrl` is a presigned R2 URL (valid for 10 minutes) pointing to the full fingerprint JSON data (~9MB). Download it directly — no additional API call needed.
+The `dataUrl` is a presigned download URL valid for a limited time — download it directly and promptly, no additional API call needed.
 
 ## Get started
 
@@ -285,3 +263,7 @@ The `dataUrl` is a presigned R2 URL (valid for 10 minutes) pointing to the full 
 4. Launch your first anti-detect browser
 
 Full documentation: `https://antibrow.com/docs`
+
+## Related Skills
+
+- **browser-mcp-agent** - run as an MCP server so an AI agent drives the browser itself via tool calls, no SDK code required

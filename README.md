@@ -1,24 +1,27 @@
-# Anti-Detect Browser — Claude Code Skill
+# Anti-Detect Browser — Claude Code Skills
 
-A [Claude Code custom skill](https://docs.anthropic.com/en/docs/claude-code/skills) that teaches Claude how to launch and manage anti-detect browsers with real-device fingerprints.
+[Claude Code custom skills](https://docs.anthropic.com/en/docs/claude-code/skills) that teach Claude how to launch and manage anti-detect browsers with real-device fingerprints, both by writing code against the SDK and by letting an agent drive the browser directly via MCP.
 
-Once installed, Claude can help you write multi-account automation scripts, configure fingerprint browsers, call the REST API, set up MCP server mode, and more — all using the `anti-detect-browser` npm package.
+## Skills in this repo
+
+- **anti-detect-browser** — SDK, profiles, fingerprints, proxies, and the REST API. Use this to write custom scraping, multi-account, or automation scripts.
+- **browser-mcp-agent** — MCP server mode. Use this to let an AI agent (Claude, GPT, etc.) launch and control the browser itself via tool calls, with no code to write.
 
 ## Install
 
 ```bash
-claude skill install --from https://github.com/antibrow/anti-detect-browser-skills
-```
-or
-```bash
+# SDK / scripting skill
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill anti-detect-browser
+
+# MCP agent-driven skill
+npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill browser-mcp-agent
 ```
 
-Or add the repo URL in Claude Code settings under **Skills**.
+Or add the repo URL in Claude Code settings under **Skills** and pick which skill(s) to install.
 
 ## What Claude learns
 
-After installation, Claude gains context about:
+From **anti-detect-browser**:
 
 - **SDK usage** — `AntiDetectBrowser` class, `launch()` options, `applyFingerprint()` for existing Playwright setups
 - **Profile management** — persistent browser identities with cookies, storage, and fingerprint binding
@@ -26,14 +29,21 @@ After installation, Claude gains context about:
 - **Proxy integration** — per-browser proxy routing
 - **Visual identification** — floating labels, window titles, theme colors for multi-window workflows
 - **Live View** — real-time headless browser streaming to the dashboard
-- **MCP server mode** — running as a tool server for AI agents (Claude, GPT, etc.)
 - **REST API** — all public `/api/v1/` endpoints for fingerprints and profiles
+
+From **browser-mcp-agent**:
+
+- **MCP server setup** — running `anti-detect-browser` as a tool server for AI agents
+- **Available tools** — `launch_browser`, `navigate`, `click`/`fill`, `screenshot`, `get_content`, Live View controls, and more
+- **Agent-driven workflows** — example task flows with no user-written code
 
 ## Repo structure
 
 ```
 anti-detect-browser/
-  SKILL.md    # Skill definition with trigger rules and full SDK reference
+  SKILL.md          # SDK and REST API reference
+browser-mcp-agent/
+  SKILL.md          # MCP server mode reference
 ```
 
 ## Related
