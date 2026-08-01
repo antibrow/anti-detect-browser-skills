@@ -1,6 +1,6 @@
 {
   "name": "antibrow",
-  "description": "Official AntiBrow skills for Claude Code: keep multiple accounts unlinked, and drive anti-detect browsers via the SDK or MCP.",
+  "description": "Official AntiBrow skills: drive a real-fingerprint Chromium from the SDK or over MCP, with persistent isolated profiles and per-profile proxies.",
   "owner": {
     "name": "AntiBrow",
     "url": "https://antibrow.com"
@@ -9,8 +9,8 @@
     {
       "name": "anti-detect-browser-skills",
       "source": "./",
-      "description": "Run multiple accounts from one machine without them being linked or banned. AntiBrow anti-detect browsers with kernel-level real-device fingerprints, isolated profiles and per-account proxies, from the JavaScript/Python SDK or via MCP tool calls.",
-      "version": "0.2.0"
+      "description": "Drive a browser that presents one coherent real device: AntiBrow's kernel-level fingerprints, persistent isolated profiles, and per-profile proxies with matching timezone and WebRTC - from the JavaScript/Python SDK or via MCP tool calls. For QA and bot-detection testing, regional ad and pricing checks, public-data scraping, agent-driven browsing, and keeping accounts you own or are authorized to run from being correlated.",
+      "version": "0.3.0"
     }
   ]
 }

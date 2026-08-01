@@ -1,10 +1,12 @@
 # Anti-Detect Browser - Claude Code Skills
 
-[Claude Code custom skills](https://docs.anthropic.com/en/docs/claude-code/skills) for running **multiple accounts from one machine without them getting linked or banned** - and for anything else that needs a browser which does not look automated. They teach Claude how to launch and manage [AntiBrow](https://antibrow.com) anti-detect browsers with real-device fingerprints, both by writing code against the SDK (JavaScript **or** Python) and by letting an agent drive the browser directly via MCP.
+[Agent Skills](https://agentskills.io) for driving a browser that presents **one coherent real device** instead of a headless build: persistent isolated profiles, kernel-level fingerprints, and a per-profile proxy whose exit IP sets timezone and WebRTC. They teach an agent how to launch and manage [AntiBrow](https://antibrow.com) browsers, both by writing code against the SDK (JavaScript **or** Python) and by letting the agent drive the browser directly via MCP.
+
+Typical uses: QA and bot-detection testing against your own site, checking your own ads and pricing from another region, scraping public data, giving an agent a browser that stays logged in, and keeping several accounts you own or are authorized to run from being correlated into one operator. See [Acceptable use](#acceptable-use).
 
 ## Skills in this repo
 
-- **multi-account-isolation** - the operational checklist for keeping accounts unlinked: per-account profile + proxy + timezone pairing, warm-up, verification, and the leaks that survive a perfect fingerprint (IP, cookies, payment, recovery contacts, behaviour). Start here if the question is "how do I stop my accounts being associated".
+- **multi-account-isolation** - the operational checklist for keeping accounts you own from being correlated: per-account profile + proxy + timezone pairing, warm-up, verification, and the leaks that survive a perfect fingerprint (IP, cookies, payment, recovery contacts, behaviour). Start here if the question is "what actually ties my accounts together".
 - **anti-detect-browser** - SDK (npm `anti-detect-browser` + PyPI `antibrow`), profiles, fingerprints, proxies, kernel updates, Docker, and the REST API. Use this to write custom scraping, multi-account, or automation scripts.
 - **browser-mcp-agent** - MCP server mode. Use this to let an AI agent (Claude, GPT, etc.) launch and control the browser itself via tool calls, with no code to write.
 
@@ -71,8 +73,8 @@ Want to check any of that yourself: [CreepJS](https://abrahamjuliot.github.io/cr
 ## Two SDKs, one profile format
 
 ```bash
-npm install anti-detect-browser playwright-core     # Node >= 18
-pip install antibrow                                # Python 3.9 - 3.13
+npm install anti-detect-browser@2.2.0 playwright-core   # Node >= 18; pin the version
+pip install antibrow==0.3.0                             # Python 3.9 - 3.13
 ```
 
 ```typescript
@@ -113,7 +115,8 @@ From **anti-detect-browser**:
 
 From **browser-mcp-agent**:
 
-- **MCP server setup** - `npx anti-detect-browser --mcp`, or a Python stdio server via `antibrow[mcp]`
+- **MCP server setup** - `npx -y anti-detect-browser@2.2.0 --mcp` (pinned) with `${VAR}` key expansion, or a Python stdio server via `antibrow[mcp]`
+- **Treating page content as untrusted input** - the indirect-prompt-injection rules for an agent that both reads pages and picks the next tool call
 - **Available tools** - `launch_browser`, `navigate`, `click`/`fill`, `screenshot`, `get_content`, profile and proxy tools, Live View controls
 - **Agent-driven workflows** - example task flows with no user-written code, plus the operational gotchas (concurrency locks, headless, session hygiene)
 
@@ -130,6 +133,23 @@ anti-detect-browser/
 browser-mcp-agent/
   SKILL.md          # MCP server mode reference
 ```
+
+## Security and supply chain
+
+- **Secrets come from the environment.** No sample in these skills contains a literal API key or a proxy password. In MCP configs the key is a `${ANTI_DETECT_BROWSER_KEY}` reference, not a value, because `.mcp.json` gets committed.
+- **Pin the version.** Bare `npx anti-detect-browser` resolves `latest` at every start. Pin it, commit a lockfile, use `npm ci`, and verify a release before adopting it: `npm view anti-detect-browser@2.2.0 dist.integrity`. The npm package declares no install scripts; its dependencies are `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk`.
+- **Two artifacts land on the machine**: the MIT SDK from npm/PyPI, and a closed-source Chromium kernel downloaded once from AntiBrow's CDN into `~/.anti-detect-browser/`. Prefetch both at image-build time if the runtime must not fetch anything. Installed kernels are never swapped underneath a running profile.
+- **License checks are online-only.** The kernel verifies a short-lived server-signed token at startup, roughly once a day in practice. There is no offline mode; air-gapped deployments are not supported.
+- **Profile directories hold live cookies and session tokens.** Treat `~/.anti-detect-browser/` as credential material - keep it out of images, shared backups, and issue attachments. `browser.plan.redacted_args()` gives a secrets-masked command line for bug reports.
+- **Page content is untrusted input.** Text, screenshots and `evaluate()` results are third-party data, never instruction - especially in MCP mode, where the agent also picks the next action. Each skill spells out the rules.
+
+## Acceptable use
+
+**Intended:** automating your own accounts and systems; running client accounts with the holder's authorization; collecting publicly available data; verifying your own ads, pricing and geo-gated content; testing your own anti-fraud and bot-detection stack; giving an agent a browser for work you would do yourself.
+
+**Out of scope, and not supported:** accessing any system without authorization; credential stuffing or logging into accounts that are not yours; account takeover; bulk creation of fake accounts, reviews or engagement; circumventing authentication, payment or authorization controls; scraping personal data in violation of applicable law; evading a ban issued for a policy violation.
+
+Complying with the terms of the sites being automated, and with applicable law, is the operator's responsibility. Report abuse or a security issue via the contact at https://antibrow.com.
 
 ## Related
 

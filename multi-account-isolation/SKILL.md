@@ -1,6 +1,7 @@
 ---
 name: multi-account-isolation
-description: Avoid account linking and bans when running multiple accounts from one machine - the full isolation checklist, not just browser fingerprints. Use when the user asks how to keep accounts from being associated with each other, why accounts got banned or restricted after being used on the same computer, how to run many social media / marketplace / ad accounts safely, how to pair a proxy with each account, or what links accounts beyond the browser (IP, cookies, timezone, payment details, recovery email and phone, behaviour). Also use when the user mentions 'account association', 'avoid account linking', 'accounts got linked', 'multi-account setup', 'account ban prevention', 'shadowban', '账号关联', '防关联', '防封号', '多账号运营', or 'multiple accounts same device'. Covers per-account profile + proxy + timezone pairing, account warm-up, verification, and the leaks that survive a perfect fingerprint. Implementation is the anti-detect-browser skill.
+description: The full checklist for keeping several accounts you own or are authorized to run from being correlated into one operator - profile, cookies, exit IP, timezone, WebRTC, account metadata, payment instrument, behaviour - not just the browser fingerprint. Use when someone runs multiple social / marketplace / ad accounts from one machine and wants to know what actually ties them together, why an isolation setup failed even though the fingerprint tested clean, how to pair one sticky proxy per account, how to verify a profile before trusting it (CreepJS, whoer, browserleaks WebRTC, pixelscan, liarjs), or which layers no browser can fix - shared recovery email, shared payout account, identical posting cadence. Also for 'account association', 'accounts got linked', 'multi-account setup', 'one proxy per account', 'profile isolation checklist', '账号关联', '防关联', '多账号运营'. The browser layer is implemented by the anti-detect-browser skill; MCP control is browser-mcp-agent.
+license: MIT
 ---
 
 # Multi-Account Isolation
@@ -8,6 +9,8 @@ description: Avoid account linking and bans when running multiple accounts from 
 Keeping several of your own accounts from being tied together by a platform is not one problem, it is a stack of them. A perfect browser fingerprint fixes exactly one layer. Accounts far more often get linked by an IP, a shared cookie, a mismatched clock, or the same recovery phone number than by a canvas hash.
 
 This skill is the checklist. For the code that implements the browser layer, see the **anti-detect-browser** skill.
+
+**Scope.** This is about accounts you own, or accounts you operate with the holder's authorization - an agency running client profiles, a seller with several storefronts, a team whose ad accounts must not be cross-attributed. It is not about getting into accounts that are not yours, manufacturing fake accounts or engagement, or coming back from a ban you earned; see [Acceptable use](#acceptable-use). Proxy URLs and API keys in the examples always come from the environment.
 
 ## The model: platforms link on many layers, and only need one
 
@@ -70,11 +73,12 @@ for (const a of accounts) {
 Python, same profile format and same on-disk identity:
 
 ```python
+import os
 from antibrow import launch
 
 with launch(
     profile="shop-us-01",
-    proxy="socks5://user:pass@us-sticky.example.com:1080",
+    proxy=os.environ["PROXY_US_1"],   # sticky proxy URL from the environment, never a literal
     geoip=True,            # timezone + WebRTC follow the proxy exit
     label="shop-us-01",
 ) as browser:
@@ -127,6 +131,29 @@ Work down in this order - the cheap layers first, because they are the ones usua
 - It does not hide a shared payment instrument or a shared payout account from a platform that checks them.
 - It does not fix content or behaviour that a platform would penalise anyway.
 - It does not defeat identity verification - a document check is not a fingerprint problem.
+
+## What the runtime touches, and how to check it
+
+Running accounts through any tool means handing that tool session cookies and proxy credentials, so it is fair to ask what the runtime does with them. For antibrow:
+
+| Artifact | Where it lives | Who sees it |
+|---|---|---|
+| Cookies, `localStorage`, login state | `~/.anti-detect-browser/<profile>/` on your disk | Local. Cloud profile sync is a separate paid-plan feature - check whether it is on before assuming a profile stays on the machine |
+| Persona (`persona.json`) | same profile directory, written once and frozen | Local |
+| Proxy URL and its credentials | passed to the kernel at launch; answered in the network stack (HTTP 407 / SOCKS5 RFC 1929) so no extension holds them | The kernel process and your proxy provider |
+| API key | your environment, or `~/.antibrow/license.key` | Exchanged with `antibrow.com` for a short-lived license token, roughly once a day |
+
+The kernel is a closed-source Chromium build - that is the tradeoff for spoofing living in C++ rather than in an injectable script - so verify behaviour rather than take it on faith:
+
+```bash
+python -m antibrow info          # kernels, profiles, license state, cache dir
+```
+
+```python
+browser.plan.redacted_args()     # exact kernel command line, secrets masked - safe to paste in a bug report
+```
+
+Point the whole thing at a proxy you can read logs on, or at a local MITM proxy, and watch what leaves the machine during a launch and a browsing session. Pin the SDK version and check the published hash (`npm view anti-detect-browser@2.2.0 dist.integrity`) so the code being audited is the code that runs. If a deployment must not phone home at all, this tool is the wrong choice: license verification is compiled into the kernel and there is no offline mode.
 
 ## Acceptable use
 
