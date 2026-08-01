@@ -1,6 +1,6 @@
 {
   "name": "antibrow",
-  "description": "Official AntiBrow skills for Claude Code: anti-detect browser automation via the SDK or MCP.",
+  "description": "Official AntiBrow skills for Claude Code: keep multiple accounts unlinked, and drive anti-detect browsers via the SDK or MCP.",
   "owner": {
     "name": "AntiBrow",
     "url": "https://antibrow.com"
@@ -9,8 +9,8 @@
     {
       "name": "anti-detect-browser-skills",
       "source": "./",
-      "description": "Launch and manage AntiBrow anti-detect browsers with kernel-level real-device fingerprints, from the JavaScript/Python SDK or via MCP tool calls.",
-      "version": "0.1.0"
+      "description": "Run multiple accounts from one machine without them being linked or banned. AntiBrow anti-detect browsers with kernel-level real-device fingerprints, isolated profiles and per-account proxies, from the JavaScript/Python SDK or via MCP tool calls.",
+      "version": "0.2.0"
     }
   ]
 }

@@ -1,6 +1,6 @@
 ---
 name: anti-detect-browser
-description: Launch and manage anti-detect browsers with kernel-level real-device fingerprints for multi-account operations, browser automation, web scraping, and AI agent workflows, from JavaScript/TypeScript (npm 'anti-detect-browser') or Python (PyPI 'antibrow'). Use when the user needs to run isolated browser sessions with distinct fingerprints and persistent profiles (cookies, storage, login state), automate web scraping or data collection, verify ads across regions or device types, manage multiple social media or e-commerce accounts, run cross-device QA testing, or drive a stealth browser from browser-use, crawl4ai, Scrapling, Puppeteer, or Playwright. Also use when the user mentions 'antibrow', 'anti-detect browser', 'fingerprint browser', 'multi-account browser', 'web scraping browser', 'Playwright fingerprint', 'CreepJS', 'whoer', 'pixelscan', or 'residential proxy browser'. For an AI agent to drive the browser itself via MCP tool calls, see browser-mcp-agent.
+description: Stop multiple accounts on one machine from being linked, flagged, or banned - launch each in its own anti-detect Chromium with kernel-level real-device fingerprints, isolated cookies and storage, and its own proxy, from JavaScript/TypeScript (npm 'anti-detect-browser') or Python (PyPI 'antibrow'). Use when the user asks how to avoid account association, run many social media / e-commerce / ad accounts from one computer, keep login state separate and persistent, scrape without being blocked by anti-bot detection, verify ads across regions, or drive a stealth browser from browser-use, crawl4ai, Scrapling, Puppeteer, or Playwright. Also use for 'antibrow', 'anti-detect browser', 'fingerprint browser', 'multi-account browser', 'account ban', 'account linking', 'multiple accounts same device', '防关联', '防封号', '多账号', 'CreepJS', 'whoer', 'pixelscan', 'residential proxy browser'. For MCP tool-call control see browser-mcp-agent; for the isolation checklist see multi-account-isolation.
 ---
 
 # Anti-Detect Browser SDK
@@ -39,7 +39,7 @@ The browser kernel is downloaded and cached once per version (~190 MB on Windows
 
 ## When to use
 
-- **Multi-account management** - Run dozens of social media, e-commerce, or ad accounts on the same machine, each with its own isolated profile, fingerprint, cookies, and storage.
+- **Multi-account management without linking** - Run dozens of social media, e-commerce, or ad accounts on the same machine without the platform tying them to one person. Each account gets its own isolated profile, fingerprint, cookies, storage, and proxy. The full checklist of what else links accounts - IP, timezone, payment details, recovery contacts, behaviour - is in the **multi-account-isolation** skill.
 - **Web scraping & data collection** - Rotate fingerprints and proxies across scraping sessions so each session presents a consistent, independent device profile.
 - **Ad verification & competitive intelligence** - View ads and content as different user profiles across regions and device types.
 - **Social media automation** - Manage multiple accounts with persistent profiles that survive browser restarts.
@@ -485,4 +485,5 @@ Automating systems without authorization, credential stuffing and bulk account-c
 
 ## Related Skills
 
+- **multi-account-isolation** - the operational checklist for keeping accounts unlinked: per-account profile/proxy/timezone pairing, what leaks past a perfect fingerprint, and what isolation cannot fix
 - **browser-mcp-agent** - run as an MCP server so an AI agent drives the browser itself via tool calls, no SDK code required

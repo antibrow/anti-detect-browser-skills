@@ -1,9 +1,10 @@
 # Anti-Detect Browser - Claude Code Skills
 
-[Claude Code custom skills](https://docs.anthropic.com/en/docs/claude-code/skills) that teach Claude how to launch and manage [AntiBrow](https://antibrow.com) anti-detect browsers with real-device fingerprints - both by writing code against the SDK (JavaScript **or** Python) and by letting an agent drive the browser directly via MCP.
+[Claude Code custom skills](https://docs.anthropic.com/en/docs/claude-code/skills) for running **multiple accounts from one machine without them getting linked or banned** - and for anything else that needs a browser which does not look automated. They teach Claude how to launch and manage [AntiBrow](https://antibrow.com) anti-detect browsers with real-device fingerprints, both by writing code against the SDK (JavaScript **or** Python) and by letting an agent drive the browser directly via MCP.
 
 ## Skills in this repo
 
+- **multi-account-isolation** - the operational checklist for keeping accounts unlinked: per-account profile + proxy + timezone pairing, warm-up, verification, and the leaks that survive a perfect fingerprint (IP, cookies, payment, recovery contacts, behaviour). Start here if the question is "how do I stop my accounts being associated".
 - **anti-detect-browser** - SDK (npm `anti-detect-browser` + PyPI `antibrow`), profiles, fingerprints, proxies, kernel updates, Docker, and the REST API. Use this to write custom scraping, multi-account, or automation scripts.
 - **browser-mcp-agent** - MCP server mode. Use this to let an AI agent (Claude, GPT, etc.) launch and control the browser itself via tool calls, with no code to write.
 
@@ -23,6 +24,9 @@ Installs both skills together and keeps them updatable via `/plugin update`:
 Works with Claude Code and any other agent the `skills` CLI supports:
 
 ```bash
+# account-isolation checklist
+npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill multi-account-isolation
+
 # SDK / scripting skill
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill anti-detect-browser
 
@@ -86,6 +90,14 @@ Both share `~/.anti-detect-browser/`, so a profile created from Node is launchab
 
 ## What Claude learns
 
+From **multi-account-isolation**:
+
+- **The linkage surface** - every layer a platform can use to tie two accounts together, and which ones a browser can and cannot isolate
+- **One account, one of everything** - profile, fingerprint, proxy, timezone, identity data, all unshared
+- **Proxy selection** - sticky vs rotating, residential vs datacenter, matching the account's claimed location
+- **Warm-up and verification** - aging accounts, and checking the setup against CreepJS, whoer, browserleaks, pixelscan, liarjs
+- **Troubleshooting order** - the cheap causes (reused profile, shared IP, timezone mismatch, shared recovery email) before blaming the fingerprint
+
 From **anti-detect-browser**:
 
 - **JS/TS SDK** - `AntiDetectBrowser`, `launch()` options, `applyFingerprint()` for existing Playwright setups, kernel update APIs
@@ -109,8 +121,10 @@ From **browser-mcp-agent**:
 
 ```
 .claude-plugin/
-  plugin.json       # plugin manifest (both skills)
+  plugin.json       # plugin manifest (all three skills)
   marketplace.json  # lets this repo be added as a Claude Code marketplace
+multi-account-isolation/
+  SKILL.md          # account-linking checklist: profiles, proxies, timezone, warm-up
 anti-detect-browser/
   SKILL.md          # SDK (JS + Python) and REST API reference
 browser-mcp-agent/

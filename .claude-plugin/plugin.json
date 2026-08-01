@@ -1,7 +1,7 @@
 {
   "name": "anti-detect-browser-skills",
-  "description": "Launch and manage AntiBrow anti-detect browsers with kernel-level real-device fingerprints, from the JavaScript/Python SDK or via MCP tool calls.",
-  "version": "0.1.0",
+  "description": "Run multiple accounts from one machine without them being linked or banned. AntiBrow anti-detect browsers with kernel-level real-device fingerprints, isolated profiles and per-account proxies, from the JavaScript/Python SDK or via MCP tool calls.",
+  "version": "0.2.0",
   "author": {
     "name": "AntiBrow",
     "url": "https://antibrow.com"
@@ -13,6 +13,10 @@
     "browser",
     "fingerprint",
     "anti-detect",
+    "multi-account",
+    "account-linking",
+    "account-ban",
+    "proxy",
     "scraping",
     "automation",
     "playwright",
@@ -20,6 +24,7 @@
   ],
   "skills": [
     "./anti-detect-browser",
+    "./multi-account-isolation",
     "./browser-mcp-agent"
   ]
 }

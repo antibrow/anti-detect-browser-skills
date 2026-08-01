@@ -98,4 +98,5 @@ A typical agent-driven flow, with no code written by the user:
 ## Related Skills
 
 - **anti-detect-browser** - full SDK and REST API reference for writing custom Playwright-based automation, scraping, and multi-account scripts directly
+- **multi-account-isolation** - the checklist for keeping accounts from being linked when an agent operates several of them
 - **antibrow dashboard** (`https://antibrow.com`) - manage profiles, watch Live View sessions, get your API key
