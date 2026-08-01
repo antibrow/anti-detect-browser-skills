@@ -9,12 +9,28 @@
 
 ## Install
 
+### As a Claude Code plugin (recommended)
+
+Installs both skills together and keeps them updatable via `/plugin update`:
+
+```
+/plugin marketplace add antibrow/anti-detect-browser-skills
+/plugin install anti-detect-browser-skills@antibrow
+```
+
+### As individual skills
+
+Works with Claude Code and any other agent the `skills` CLI supports:
+
 ```bash
 # SDK / scripting skill
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill anti-detect-browser
 
 # MCP agent-driven skill
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill browser-mcp-agent
+
+# both
+npx skills add https://github.com/antibrow/anti-detect-browser-skills --all
 ```
 
 Or add the repo URL in Claude Code settings under **Skills** and pick which skill(s) to install.
@@ -92,6 +108,9 @@ From **browser-mcp-agent**:
 ## Repo structure
 
 ```
+.claude-plugin/
+  plugin.json       # plugin manifest (both skills)
+  marketplace.json  # lets this repo be added as a Claude Code marketplace
 anti-detect-browser/
   SKILL.md          # SDK (JS + Python) and REST API reference
 browser-mcp-agent/

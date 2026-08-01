@@ -1,0 +1,25 @@
+{
+  "name": "anti-detect-browser-skills",
+  "description": "Launch and manage AntiBrow anti-detect browsers with kernel-level real-device fingerprints, from the JavaScript/Python SDK or via MCP tool calls.",
+  "version": "0.1.0",
+  "author": {
+    "name": "AntiBrow",
+    "url": "https://antibrow.com"
+  },
+  "homepage": "https://antibrow.com",
+  "repository": "https://github.com/antibrow/anti-detect-browser-skills",
+  "license": "MIT",
+  "keywords": [
+    "browser",
+    "fingerprint",
+    "anti-detect",
+    "scraping",
+    "automation",
+    "playwright",
+    "mcp"
+  ],
+  "skills": [
+    "./anti-detect-browser",
+    "./browser-mcp-agent"
+  ]
+}

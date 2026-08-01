@@ -45,7 +45,7 @@ Get your API key at `https://antibrow.com` - the free key gives 1 concurrent bro
 
 ### Python
 
-If the agent stack is Python, `pip install "antibrow[mcp]"` and run the stdio MCP server from `examples/09_mcp_server.py` in `https://github.com/antibrow/antibrow`:
+If the agent stack is Python, `pip install "antibrow[mcp]"` and run the stdio MCP server from `python/examples/09_mcp_server.py` in `https://github.com/antibrow/antibrow`:
 
 ```json
 {

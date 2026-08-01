@@ -1,0 +1,16 @@
+{
+  "name": "antibrow",
+  "description": "Official AntiBrow skills for Claude Code: anti-detect browser automation via the SDK or MCP.",
+  "owner": {
+    "name": "AntiBrow",
+    "url": "https://antibrow.com"
+  },
+  "plugins": [
+    {
+      "name": "anti-detect-browser-skills",
+      "source": "./",
+      "description": "Launch and manage AntiBrow anti-detect browsers with kernel-level real-device fingerprints, from the JavaScript/Python SDK or via MCP tool calls.",
+      "version": "0.1.0"
+    }
+  ]
+}
