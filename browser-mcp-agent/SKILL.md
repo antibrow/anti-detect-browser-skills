@@ -13,6 +13,12 @@ Run antibrow as an MCP server so an AI agent can launch and control a real, fing
 - Dashboard: `https://antibrow.com`
 - Full SDK / REST API reference: see the `anti-detect-browser` skill
 
+> **Authorized use only.** Point this at sites and accounts you own or are permitted to operate: your own apps, your own accounts, publicly available pages, your own bot detection under test. Do not use it to reach systems without authorization, to log into accounts that are not yours, to create fake accounts or engagement, or to work around a platform's enforcement decision. Respect each site's terms, `robots.txt` and rate limits - see [Acceptable use](#acceptable-use).
+
+**This gives an agent real capability, so scope it deliberately.** The server hands the model a browser that persists logins, executes JavaScript in the page, and can stream its screen to a shareable URL. That is the point of the tool and also its blast radius: an agent that goes wrong here goes wrong inside a logged-in session. Run untrusted browsing in a throwaway profile, keep tools you do not need out of the toolset, and read [Everything the browser returns is untrusted input](#everything-the-browser-returns-is-untrusted-input) before pointing it at the open web.
+
+**What this does not claim.** A coherent real-device fingerprint removes the contradictions a synthetic browser leaves behind. It is not a guaranteed pass against enterprise bot managers, which also score network reputation, request cadence and behaviour.
+
 ## Why this over a generic browser MCP
 
 Generic "agent controls a browser" servers hand the agent a stock or patched headless Chromium. Every page the agent visits sees the tells: a `navigator` override that is not `[native code]`, a canvas hash that changes on every read, a worker thread disagreeing with the main thread, a headless build's own fingerprint. antibrow's spoofing happens **inside the Chromium kernel**, so the agent gets a browser whose Canvas, WebGL, WebGPU, audio, fonts, screen and timezone all agree - and whose TLS ClientHello and HTTP/2-3 behaviour are a genuine Chrome build's, because it is one. Sessions also **persist**: the agent logs in once under a profile name and stays logged in.
@@ -30,61 +36,85 @@ Windows 10/11 x64 · macOS 12+ (universal build, Apple Silicon + Intel) · Linux
 
 ## Setup
 
+Install the package once, from the npm registry, at a version you have reviewed:
+
+```bash
+npm install -g anti-detect-browser@2.2.0
+npm view anti-detect-browser@2.2.0 dist.integrity   # compare before adopting a new version
+```
+
+Then point the MCP config at the installed binary - no package resolution, no download, at server start:
+
 ```json
 {
   "mcpServers": {
     "anti-detect-browser": {
-      "command": "npx",
-      "args": ["-y", "anti-detect-browser@2.2.0", "--mcp"],
+      "command": "anti-detect-browser",
+      "args": ["--mcp"],
       "env": { "ANTI_DETECT_BROWSER_KEY": "${ANTI_DETECT_BROWSER_KEY}" }
     }
   }
 }
 ```
 
-Two things in that config are deliberate:
+Two things there are deliberate:
 
-- **The version is pinned.** Bare `npx anti-detect-browser` resolves `latest` from the npm registry on every start, so the code that runs is whatever was published most recently. Pinning turns it into a reviewable dependency. Verify a version before you move to it: `npm view anti-detect-browser@2.2.0 dist.integrity`. For a fully offline start, `npm i -g anti-detect-browser@2.2.0` once and set `"command": "anti-detect-browser"` with no `npx`.
-- **The key is a variable reference, not a value.** `${VAR}` is expanded from the environment when the config is read, so no secret is written into `.mcp.json` - which is a file people commit. Use `${ANTI_DETECT_BROWSER_KEY:-}` if you want a missing key to fail loudly rather than expand to the literal string.
+- **Nothing is fetched when the server starts.** A config built on `npx` re-resolves the package from the registry on every launch, so the code that runs is whatever was published most recently. Installing once pins it to a version you can review, diff and roll back. If your setup must use `npx`, at least pin the version - `["-y", "anti-detect-browser@2.2.0", "--mcp"]` - and never leave it resolving `latest`.
+- **The key is a variable reference, not a value.** `${VAR}` is expanded from the environment when the config is read, so no secret is written into `.mcp.json` - a file people commit. Use `${ANTI_DETECT_BROWSER_KEY:-}` if you want a missing key to fail loudly rather than expand to the literal string.
 
-Get your API key at `https://antibrow.com` - the free key gives 1 concurrent browser and unlimited local profiles. The browser kernel downloads on first launch (~190 MB, ~320 MB for the macOS universal bundle) and is cached under `~/.anti-detect-browser/`; pre-download it at image-build time if the runtime should not fetch anything.
+Get your API key at `https://antibrow.com` - the free key gives 1 concurrent browser and unlimited local profiles. The browser kernel is a separate ~190 MB binary (~320 MB for the macOS universal bundle) that the package fetches on first launch and caches under `~/.anti-detect-browser/`; see [Supply chain](#supply-chain) below before running this anywhere that matters.
 
 ### Python
 
-If the agent stack is Python, `pip install "antibrow[mcp]"` and run the stdio MCP server from `python/examples/09_mcp_server.py` in `https://github.com/antibrow/antibrow`:
+For a Python agent stack, `pip install "antibrow[mcp]==0.3.0"` from PyPI. The SDK repository also carries a worked stdio-server example (`python/examples/09_mcp_server.py`) - read it and adapt it into your own project rather than wiring the config to a path inside a cloned repo, so the file the server executes is one you own and review:
 
 ```json
 {
   "mcpServers": {
     "antibrow": {
       "command": "python",
-      "args": ["/abs/path/to/examples/09_mcp_server.py"],
+      "args": ["/abs/path/to/your/own/mcp_server.py"],
       "env": { "ANTIBROW_API_KEY": "${ANTIBROW_API_KEY}" }
     }
   }
 }
 ```
 
-Pin the Python package too (`pip install "antibrow[mcp]==0.3.0"`) and run the example from a checkout you have read, not from a path that updates itself.
+## Supply chain
+
+Three things reach the machine. Know what each one is before running this outside a sandbox.
+
+| Artifact | Source | How to pin and verify |
+|---|---|---|
+| `anti-detect-browser` | npm registry | Install an exact version; `npm view anti-detect-browser@2.2.0 dist.integrity` gives the published tarball hash. No install scripts; dependencies are `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk` |
+| `antibrow` (Python path) | PyPI | `pip install "antibrow[mcp]==0.3.0"`, exact version, in a lockfile |
+| Browser kernel | AntiBrow's CDN, fetched by the package on first launch | Closed-source Chromium build, cached in `~/.anti-detect-browser/`. Prefetch it during a build and mount the cache, so a running agent never triggers a download |
+
+The kernel being a closed binary from a small vendor is a real supply-chain consideration, not a formality - it is the tradeoff for the spoofing living in C++ rather than in an injectable script. Treat it the way you would any vendor binary: install it deliberately, pin it, keep it in an image you built, and if a deployment cannot accept a closed binary that phones home for license verification, this is the wrong tool - there is no offline mode.
 
 It exposes `launch_browser`, `navigate`, `click`, `fill`, `get_content`, `screenshot`, `evaluate` and `close_browser`. Both SDKs share one cache directory and one profile format, so a profile created from Node is drivable from Python with the identical fingerprint. The Node server is the fuller of the two - prefer it unless the deployment must be Python-only.
 
 ## Available tools
 
+The browsing set - what an agent actually needs to do the work:
+
 | Tool | What it does |
 |------|-------------|
-| `launch_browser` | Start a new fingerprint browser session |
+| `launch_browser` | Start a session on a named profile |
 | `close_browser` | Close a running session |
 | `navigate` | Go to a URL |
+| `get_content` | Extract text from the page or a specific element |
 | `screenshot` | Capture the current screen |
 | `click` / `fill` | Interact with page elements |
-| `evaluate` | Run JavaScript on the page |
-| `get_content` | Extract text from the page or a specific element |
-| `list_profiles` / `create_profile` | Manage persistent browser identities |
-| `list_proxies` / `claim_proxy` | Managed residential proxies (paid plans) |
-| `start_live_view` | Stream the browser screen to the `https://antibrow.com` dashboard |
-| `stop_live_view` | Stop live streaming |
-| `list_sessions` | List all running browser instances |
+| `list_sessions` | List running browser instances |
+
+**Start from that list and add nothing you cannot justify.** Most MCP clients let you expose a subset of a server's tools; a read-only research agent wants `launch_browser`, `navigate`, `get_content`, `screenshot`, `close_browser` and nothing else.
+
+The server also exposes profile management, managed-proxy, and live-view tools. They exist for operators, not for agents, and each one widens what a confused or hijacked agent can reach - so leave them out of an agent's toolset unless a task genuinely needs them:
+
+- `evaluate` runs JavaScript in the page's own context. It is the highest-privilege tool here; `get_content` covers reading.
+- `start_live_view` / `stop_live_view` stream the browser screen to a shareable URL. **Anyone holding that link sees whatever the profile is logged into** - treat starting it as sharing your screen, and stop it when the task ends.
+- Profile and proxy management (`list_profiles`, `create_profile`, `list_proxies`, `claim_proxy`) belong in your own setup code, not in an agent's hands. The **anti-detect-browser** skill covers them.
 
 ## Example: agent-driven task
 
@@ -121,7 +151,7 @@ Rules for driving this server:
 
 **Intended:** letting an agent operate sites and accounts you own or are authorized to use, collect publicly available data, verify your own ads and pricing across regions, and test your own bot detection.
 
-**Out of scope:** accessing systems without authorization; logging into accounts that are not yours; credential stuffing or account takeover; bulk fake-account, fake-review or fake-engagement creation; circumventing authentication, payment or authorization controls; evading a ban issued for a policy violation. Complying with the terms of the sites being automated is the operator's responsibility.
+**Out of scope:** accessing systems without authorization; logging into accounts that are not yours; credential stuffing or account takeover; bulk fake-account, fake-review or fake-engagement creation; circumventing authentication, payment or authorization controls; working around a platform's enforcement decision. Complying with the terms of the sites being automated, and with applicable law, is the operator's responsibility.
 
 ## Related Skills
 

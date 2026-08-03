@@ -1,140 +1,103 @@
 ---
 name: multi-account-isolation
-description: The full checklist for keeping several accounts you own or are authorized to run from being correlated into one operator - profile, cookies, exit IP, timezone, WebRTC, account metadata, payment instrument, behaviour - not just the browser fingerprint. Use when someone runs multiple social / marketplace / ad accounts from one machine and wants to know what actually ties them together, why an isolation setup failed even though the fingerprint tested clean, how to pair one sticky proxy per account, how to verify a profile before trusting it (CreepJS, whoer, browserleaks WebRTC, pixelscan, liarjs), or which layers no browser can fix - shared recovery email, shared payout account, identical posting cadence. Also for 'account association', 'accounts got linked', 'multi-account setup', 'one proxy per account', 'profile isolation checklist', '账号关联', '防关联', '多账号运营'. The browser layer is implemented by the anti-detect-browser skill; MCP control is browser-mcp-agent.
+description: Verify that browser profiles are actually isolated from one another instead of assuming it - confirm each profile's timezone agrees with its own exit IP, that WebRTC exposes only the proxy, that canvas and WebGL hashes stay identical across relaunches of one profile, and that no two profiles share a persona, a cookie jar, or an address. Use when several of your own accounts or test identities run from one machine and the setup needs checking, when a profile tested clean but something still looks off, when choosing which detection suites to run (CreepJS, whoer, browserleaks WebRTC, pixelscan, liarjs), when auditing what a vendor runtime does with API and proxy credentials, or when asking which layers browser isolation cannot cover at all. Also for 'profile isolation check', 'fingerprint consistency test', 'timezone mismatch', 'WebRTC leak', 'canvas hash unstable', 'account association', '防关联', '多账号', '隔离自检'. The SDK is anti-detect-browser; MCP control is browser-mcp-agent.
 license: MIT
 ---
 
-# Multi-Account Isolation
+# Profile Isolation - verifying it, not assuming it
 
-Keeping several of your own accounts from being tied together by a platform is not one problem, it is a stack of them. A perfect browser fingerprint fixes exactly one layer. Accounts far more often get linked by an IP, a shared cookie, a mismatched clock, or the same recovery phone number than by a canvas hash.
+A profile that *looks* isolated usually is not. The failures are boring and mechanical: a timezone that does not match the exit IP, a WebRTC candidate carrying the real address, a canvas hash that changes on every read, two profiles that ended up on the same persona. This skill is the check list for catching those before they matter.
 
-This skill is the checklist. For the code that implements the browser layer, see the **anti-detect-browser** skill.
+> **Authorized use only.** This is for identities you own or are authorized to operate: your own accounts, your own test fixtures, your own QA fleet, and your own anti-fraud stack. It is not for accessing systems without authorization, for accounts that are not yours, or for creating fake accounts or engagement. Comply with the terms of the sites you automate and with applicable law - see [Acceptable use](#acceptable-use).
 
-**Scope.** This is about accounts you own, or accounts you operate with the holder's authorization - an agency running client profiles, a seller with several storefronts, a team whose ad accounts must not be cross-attributed. It is not about getting into accounts that are not yours, manufacturing fake accounts or engagement, or coming back from a ban you earned; see [Acceptable use](#acceptable-use). Proxy URLs and API keys in the examples always come from the environment.
+**What this does not claim.** Passing every check below means the browser layer is internally consistent. It does not mean a given site will treat two profiles as unrelated: things entirely outside the browser - a shared payment instrument, a shared contact detail, identical activity patterns - are not something any browser setting reaches. Treat a clean result as "the technical layer is not the problem", not as a guarantee.
 
-## The model: platforms link on many layers, and only need one
+For the SDK that creates and launches these profiles, see the **anti-detect-browser** skill.
 
-Linkage systems build a graph. Every account is a node; every shared signal is an edge. One strong edge (same payment card) or several weak ones (same /24 subnet + same screen resolution + same active hours) is enough to merge two nodes into "one operator".
+## The configuration invariant
 
-So the goal is not "beat the fingerprint test". It is **leave no edge**. Getting nine layers right and the tenth wrong still merges the nodes.
-
-## Linkage surface
-
-| Layer | What links the accounts | How to isolate |
-|---|---|---|
-| **Browser fingerprint** | Canvas, WebGL/WebGPU, audio, fonts, screen, UA, `navigator` all identical across accounts | One antibrow profile per account - each draws its own real-device persona, frozen at creation |
-| **Cookies / storage** | A third-party or leftover first-party cookie seen under two logins; `localStorage` IDs; service-worker caches | Separate profile per account. Never "log out and log in as the other account" in one profile |
-| **IP address** | Same exit IP, or same subnet, or an IP already burned by a banned account | One proxy per account, sticky (not rotating) for logged-in sessions. Residential or mobile, not datacenter |
-| **Timezone / locale / geo** | Browser clock in one country, exit IP in another - the single most common tell | `geoip=True` (default): the exit IP is resolved *through* the proxy and timezone + WebRTC are written to match |
-| **WebRTC** | Real IP leaking past the proxy in ICE candidates | Handled in the kernel when the proxy is set; verify at browserleaks or whoer |
-| **Account metadata** | Same recovery email, same phone, same birthday, same name spelling, same profile photo file | Distinct per account. This is the edge people most often forget - no browser setting touches it |
-| **Payment** | Same card, same PayPal, same payout bank account, same billing address | Distinct per account where the platform allows it; this is usually the hardest-to-hide edge |
-| **Behaviour** | All accounts active in the same 20-minute window, identical posting cadence, same follow targets, copy-pasted content | Stagger schedules and vary content. Nothing technical fixes this |
-| **Referral graph** | Accounts following, liking, or messaging each other early on | Avoid cross-interaction, especially before accounts are aged |
-
-The bottom four rows are **not** solved by an anti-detect browser. If accounts keep getting linked with the browser layer correct, look there first.
-
-## The rule: one account, one of everything
+One identity gets one of everything. Any cell shared between two identities is a defect to find:
 
 ```
-account  →  profile  →  fingerprint  →  proxy  →  timezone  →  identity data
-   1     :     1      :       1        :    1    :     1      :        1
+identity  →  profile  →  persona  →  proxy  →  timezone
+   1      :     1     :     1     :    1    :     1
 ```
 
-Any shared cell in that row is a potential edge. Profiles are unlimited and free on every antibrow plan, so there is never a reason to reuse one.
+Profiles are unlimited and free on every antibrow plan, so there is never a reason to reuse one. "Log out and log back in as the other identity" inside one profile defeats the entire setup - the cookie jar and `localStorage` are the point.
 
-## Setup
-
-Pair each account with its own profile and its own sticky proxy. The persona is drawn once and frozen, so the account sees the same device on every later launch - which is what a real user looks like.
+## Setup under test
 
 ```typescript
 import { AntiDetectBrowser } from 'anti-detect-browser'
 
 const ab = new AntiDetectBrowser({ key: process.env.ANTI_DETECT_BROWSER_KEY })
 
-const accounts = [
-  { profile: 'shop-us-01', proxy: process.env.PROXY_US_1, tags: ['Windows 10', 'Chrome'] },
-  { profile: 'shop-us-02', proxy: process.env.PROXY_US_2, tags: ['Apple Mac', 'Safari'] },
-  { profile: 'shop-de-01', proxy: process.env.PROXY_DE_1, tags: ['Windows 10', 'Edge'] },
+const identities = [
+  { profile: 'fixture-us-01', proxy: process.env.PROXY_US_1, tags: ['Windows 10', 'Chrome'] },
+  { profile: 'fixture-us-02', proxy: process.env.PROXY_US_2, tags: ['Apple Mac', 'Safari'] },
+  { profile: 'fixture-de-01', proxy: process.env.PROXY_DE_1, tags: ['Windows 10', 'Edge'] },
 ]
 
-for (const a of accounts) {
+for (const id of identities) {
   const { browser, page } = await ab.launch({
-    profile: a.profile,               // isolated cookies, storage, login state
-    proxy: a.proxy,                   // sticky, one per account
-    fingerprint: { tags: a.tags },    // frozen at first launch, replayed after
-    label: a.profile,                 // floating label so windows are tellable apart
+    profile: id.profile,              // isolated cookies, storage, login state
+    proxy: id.proxy,                  // from the environment, one per identity
+    fingerprint: { tags: id.tags },   // drawn once, frozen, replayed after
+    label: id.profile,                // floating label so windows are tellable apart
   })
-  // ... work this account, then close it ...
+  // ... run the checks below, then ...
   await browser.close()
 }
 ```
 
-Python, same profile format and same on-disk identity:
+Python, same on-disk profile format:
 
 ```python
 import os
 from antibrow import launch
 
 with launch(
-    profile="shop-us-01",
-    proxy=os.environ["PROXY_US_1"],   # sticky proxy URL from the environment, never a literal
+    profile="fixture-us-01",
+    proxy=os.environ["PROXY_US_1"],   # from the environment, never a literal
     geoip=True,            # timezone + WebRTC follow the proxy exit
-    label="shop-us-01",
+    label="fixture-us-01",
 ) as browser:
     page = browser.new_page()
-    page.goto("https://example.com")
     print(browser.timezone, browser.public_ip)
 ```
 
-### Proxy selection
+## The checks
 
-- **Sticky, not rotating.** A logged-in session whose IP changes mid-flight looks like a hijacked session. Rotation belongs in scraping, not in account operation.
-- **Residential or mobile** for consumer platforms. Datacenter ranges are widely tagged.
-- **Match the account's claimed location** to the proxy, and keep it stable. An account that has always been in Ohio and suddenly appears in Vietnam is a stronger signal than any fingerprint.
-- **Never share one exit across accounts**, and do not reuse the exit of an account that was already banned.
+Run each profile **through its own proxy**, and assert rather than eyeball.
 
-### Fingerprint variety
+| # | Check | How | Fails when |
+|---|---|---|---|
+| 1 | Timezone matches the exit IP | `browser.timezone` vs the country of `browser.public_ip` | `geoip` was disabled, or `timezone` was forced to something the IP contradicts. This is the single most common defect. |
+| 2 | WebRTC exposes only the proxy | [browserleaks.com/webrtc](https://browserleaks.com/webrtc) | ICE candidates still carry a local or real public address |
+| 3 | Canvas hash is stable across launches | Read it, close, relaunch the same profile, read again | The two reads differ - a value that changes every read is itself an anomaly, and it means the persona is not frozen |
+| 4 | Worker and main thread agree | [CreepJS](https://abrahamjuliot.github.io/creepjs/) | UA, `languages`, `hardwareConcurrency`, timezone or GPU differ when re-read inside a Web Worker |
+| 5 | One GPU across three interfaces | CreepJS, or read WebGL / WebGL2 / WebGPU directly | `adapter.info.vendor` does not match the unmasked WebGL renderer family |
+| 6 | No two profiles share a persona | Diff `browser.persona` across the fleet | Two profiles report the same UA, screen geometry and seeds |
+| 7 | No two profiles share an address | Collect `browser.public_ip` for the fleet | Two identities came out of the same exit, or the same /24 |
+| 8 | Cookie jars are separate | Inspect `~/.anti-detect-browser/<profile>/` | One profile directory holds state that belongs to another identity |
+| 9 | Whole-stack coherence | [whoer.net](https://whoer.net), [pixelscan.net](https://pixelscan.net) | IP, timezone and locale disagree at a glance |
+| 10 | Consistency rules in CI | `npx liarjs` ([liarjs.dev](https://liarjs.dev)) | Any of ~40 open-source cross-layer rules fail - this is the one that runs unattended |
 
-Do not give every account `['Windows 10', 'Chrome']`. Real populations are mixed. Vary the tags across the fleet - `Apple Mac`, `Android`, `Edge`, `Mobile` - and let each account keep its own draw forever.
+Checks 1, 3 and 7 are the ones worth wiring into CI: they are cheap, deterministic, and they catch the defects that actually recur.
 
-## Warm-up
+## Reading a failure
 
-New accounts that immediately do the thing you made them for are the easiest to catch. Age each account with ordinary behaviour before it does anything of value: browse, read, follow a few unrelated things, come back the next day. Days, not minutes. Warm-up is a behaviour problem, so no browser feature substitutes for it.
+Work down in this order, cheapest first - a fingerprint is almost never the actual cause:
 
-## Verify before you trust the setup
-
-Run a fresh profile against a detection suite **through its own proxy** and confirm the layers agree:
-
-- [CreepJS](https://abrahamjuliot.github.io/creepjs/) - cross-layer consistency, worker vs main thread
-- [whoer.net](https://whoer.net) - IP, timezone and locale agreement at a glance
-- [browserleaks.com/webrtc](https://browserleaks.com/webrtc) - real IP leaking past the proxy
-- [pixelscan.net](https://pixelscan.net) - IP-to-fingerprint coherence
-- `npx liarjs` ([liarjs.dev](https://liarjs.dev)) - ~40 open-source consistency rules, runnable in CI
-
-Check specifically: does the reported timezone match the exit IP's country, does the WebRTC candidate show only the proxy, and does the canvas hash stay **the same** across two launches of the same profile (a changing hash is itself a flag).
-
-## Troubleshooting: accounts still getting linked
-
-Work down in this order - the cheap layers first, because they are the ones usually at fault:
-
-1. **Two accounts in one profile?** Check that no profile name was reused. `list_profiles` or `~/.anti-detect-browser/`.
-2. **Shared or recycled IP?** Confirm each account's `public_ip` is distinct and that none belonged to a banned account.
-3. **Timezone mismatch?** Print `browser.timezone` and `browser.public_ip` and confirm they agree.
-4. **Shared account metadata?** Recovery email, phone, payout account, billing address - the most common real cause.
-5. **Behavioural overlap?** Same active hours, same content, accounts interacting with each other.
-6. **Only then** suspect the fingerprint - and verify it with the tools above rather than assuming.
-
-## What this cannot do
-
-- It does not make a banned account come back.
-- It does not hide a shared payment instrument or a shared payout account from a platform that checks them.
-- It does not fix content or behaviour that a platform would penalise anyway.
-- It does not defeat identity verification - a document check is not a fingerprint problem.
+1. **Profile name reused?** `list_profiles`, or look at `~/.anti-detect-browser/`. Two identities in one directory explains everything else.
+2. **Same address twice?** Confirm each `public_ip` is distinct.
+3. **Clock disagrees with the address?** Print `browser.timezone` and `browser.public_ip` together.
+4. **Persona regenerated?** If the canvas hash moved between launches, the profile is not frozen - check whether `profile_dir` or the cache directory changed under it.
+5. **Only then** the fingerprint itself, verified with the suites above rather than assumed.
 
 ## What the runtime touches, and how to check it
 
-Running accounts through any tool means handing that tool session cookies and proxy credentials, so it is fair to ask what the runtime does with them. For antibrow:
+Any tool that drives logged-in sessions receives cookies and proxy credentials, so it is fair to ask what it does with them. For antibrow:
 
 | Artifact | Where it lives | Who sees it |
 |---|---|---|
@@ -143,7 +106,7 @@ Running accounts through any tool means handing that tool session cookies and pr
 | Proxy URL and its credentials | passed to the kernel at launch; answered in the network stack (HTTP 407 / SOCKS5 RFC 1929) so no extension holds them | The kernel process and your proxy provider |
 | API key | your environment, or `~/.antibrow/license.key` | Exchanged with `antibrow.com` for a short-lived license token, roughly once a day |
 
-The kernel is a closed-source Chromium build - that is the tradeoff for spoofing living in C++ rather than in an injectable script - so verify behaviour rather than take it on faith:
+The kernel is a closed-source Chromium build - that is the tradeoff for the spoofing living in C++ rather than in an injectable script - so verify behaviour rather than take it on faith:
 
 ```bash
 python -m antibrow info          # kernels, profiles, license state, cache dir
@@ -153,13 +116,28 @@ python -m antibrow info          # kernels, profiles, license state, cache dir
 browser.plan.redacted_args()     # exact kernel command line, secrets masked - safe to paste in a bug report
 ```
 
-Point the whole thing at a proxy you can read logs on, or at a local MITM proxy, and watch what leaves the machine during a launch and a browsing session. Pin the SDK version and check the published hash (`npm view anti-detect-browser@2.2.0 dist.integrity`) so the code being audited is the code that runs. If a deployment must not phone home at all, this tool is the wrong choice: license verification is compiled into the kernel and there is no offline mode.
+Point it at a proxy whose logs you can read, or at a local MITM proxy, and watch what leaves the machine during a launch. Pin the SDK version and check the published hash (`npm view anti-detect-browser@2.2.0 dist.integrity`) so the code you audited is the code that runs. If a deployment must not phone home at all, this is the wrong tool: license verification is compiled into the kernel and there is no offline mode.
+
+## What isolation cannot cover
+
+Worth stating plainly, because a clean check list invites the wrong conclusion:
+
+- **Anything outside the browser.** A shared payment instrument, a shared contact detail, a shared payout destination - no browser setting touches these, and they are the strongest correlators that exist.
+- **Activity patterns.** Identical timing, identical content, identical interaction targets. Not a technical property.
+- **Identity verification.** A document check is not a fingerprint problem.
+- **A platform's own decision.** Nothing here changes how a site chooses to treat an account.
+
+If the ten checks pass and something still looks wrong, the cause is in this list, not in the browser layer.
 
 ## Acceptable use
 
-Managing your own accounts across platforms, running client accounts with authorization, testing your own anti-fraud stack, and scraping public data are the intended uses. Bulk account-creation abuse, credential stuffing, evading a ban you were given for a policy violation, and automating systems you have no authorization to access are out of scope. Complying with the terms of the platforms being used is the operator's responsibility.
+**Intended:** verifying isolation between identities you own; running client accounts with the account holder's authorization; building QA fixtures that emulate distinct devices; testing your own anti-fraud and correlation logic; auditing what a browser runtime does with your credentials.
+
+**Out of scope, and not supported:** accessing any system without authorization; logging into accounts that are not yours; credential stuffing or account takeover; creating fake accounts, reviews or engagement; circumventing an authentication, payment or authorization control; scraping personal data in violation of applicable law; working around a platform's enforcement decision.
+
+Complying with the terms of the platforms being used, and with applicable law, is the operator's responsibility. Report abuse or a security issue via the contact at `https://antibrow.com`.
 
 ## Related Skills
 
-- **anti-detect-browser** - the SDK, profiles, fingerprints, proxies, and REST API that implement the browser layer
-- **browser-mcp-agent** - MCP server mode, for letting an AI agent drive an isolated profile itself
+- **anti-detect-browser** - the SDK, profiles, personas, proxies and REST API that create the setup being verified here
+- **browser-mcp-agent** - MCP server mode, for letting an AI agent drive a single profile itself

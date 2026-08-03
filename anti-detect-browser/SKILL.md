@@ -14,7 +14,11 @@ Launch Chromium instances with real-device fingerprints via standard Playwright 
 - REST API base: `https://antibrow.com/api/v1/`
 - Documentation: `https://antibrow.com/docs`
 
-**Scope.** This is tooling for automating systems you own or are authorized to use: your own accounts, your own site's anti-fraud stack, public data, and region-specific views of your own ads and pricing. Accessing systems without authorization, credential stuffing, taking over accounts that are not yours, and bulk fake-account creation are out of scope - see [Acceptable use](#acceptable-use). Every code sample below reads credentials from the environment; none contain literal keys or proxy passwords.
+> **Authorized use only.** This is for automating systems you own or are permitted to use: your own accounts, your own site's bot detection and anti-fraud stack, publicly available data, and region-specific views of your own ads and pricing. Do not use it to access systems without authorization, to log into accounts that are not yours, to create fake accounts or engagement, or to work around a platform's enforcement decision. Respect each site's terms, `robots.txt` and rate limits, and applicable law - see [Acceptable use](#acceptable-use).
+
+**What this does not claim.** A coherent real-device fingerprint removes the *contradictions* a synthetic browser leaves behind. It is not a guaranteed pass against enterprise bot managers, which also score network reputation, request patterns, behaviour and account history - none of which a fingerprint touches. Measure with the suites listed under [What detection actually tests](#what-detection-actually-tests) rather than assuming.
+
+Every code sample below reads credentials from the environment; none contain literal keys or proxy passwords.
 
 ## Why antibrow
 
@@ -46,7 +50,7 @@ The browser kernel is downloaded and cached once per version (~190 MB on Windows
 - **Ad verification & regional QA** - Check how your ads, pricing and geo-gated content render to a user in another country, on another device class.
 - **Web scraping of public data** - Give each session one consistent, independent device profile instead of a headless build that contradicts itself, and pair it with its own exit IP.
 - **Agent-driven browsing** - Hand an AI agent a browser that stays logged in between runs and looks like one machine to the sites it visits (MCP mode: **browser-mcp-agent**).
-- **Operating your own or client-authorized accounts separately** - Several accounts you own, or run with the account holder's authorization, each in its own profile, fingerprint, cookies, storage and sticky proxy, so routine platform correlation does not merge them. What else correlates accounts - IP, timezone, payment instrument, recovery contacts, behaviour - is the **multi-account-isolation** skill.
+- **Keeping separate identities separate** - Accounts you own, or operate with the holder's authorization, each in its own profile with its own persona, cookie jar, storage and egress, so sessions never bleed into one another. Verifying that the isolation actually holds - and what it cannot cover - is the **multi-account-isolation** skill.
 
 ## Quick start
 
@@ -63,7 +67,7 @@ const ab = new AntiDetectBrowser({ key: process.env.ANTI_DETECT_BROWSER_KEY })
 const { browser, page } = await ab.launch({
   fingerprint: { tags: ['Windows 10', 'Chrome'] },
   profile: 'my-account-01',
-  proxy: process.env.PROXY_URL,   // scheme://<user>:<pass>@<host>:<port>, supplied by the environment
+  proxy: process.env.PROXY_URL,   // full proxy URL, supplied by the environment
 })
 
 // Standard Playwright API from here - zero learning curve
@@ -90,25 +94,14 @@ Everything this SDK needs is read from the environment. There is no configuratio
 
 Two artifacts land on the machine. Both are pinnable and both are verifiable.
 
-1. **The SDK package** - `anti-detect-browser` on npm (dependencies: `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk`; no install scripts) or `antibrow` on PyPI. Pin an exact version and commit the lockfile; use `npm ci` rather than `npm install` in CI. Check the published tarball hash before trusting a new version:
+| Artifact | Source | How to pin and verify |
+|---|---|---|
+| SDK package | `anti-detect-browser` on npm, or `antibrow` on PyPI | Exact version in a committed lockfile; `npm ci` rather than `npm install` in CI. `npm view anti-detect-browser@2.2.0 dist.integrity` gives the published tarball hash to compare before adopting a version. No install scripts; dependencies are `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk` |
+| Browser kernel | a closed-source Chromium build the pinned package retrieves on first launch, cached in `~/.anti-detect-browser/` (~190 MB; ~320 MB for the macOS universal bundle) | Warm the cache during your image build rather than at run time - the Python CLI has an explicit `install` step for this, and on Node a single throwaway launch does it. Then mount `~/.anti-detect-browser/` as a volume so a running container needs nothing further. Installed kernels are never swapped underneath a live profile; updates happen only when explicitly requested |
 
-   ```bash
-   npm view anti-detect-browser@2.2.0 dist.integrity dist.shasum
-   ```
+For MCP setups, install the package once at a pinned version instead of letting `npx` resolve `latest` at every start - see the `browser-mcp-agent` skill.
 
-2. **The browser kernel** - a closed-source Chromium build downloaded once from AntiBrow's CDN into `~/.anti-detect-browser/` (~190 MB, ~320 MB for the macOS universal bundle). Installed kernels are never swapped underneath a running profile; updates only happen when explicitly requested.
-
-Prefetch both at image-build time so nothing is fetched at run time:
-
-```bash
-npm ci                                               # lockfile-pinned SDK
-python -m antibrow install --version 150.0.7871.182  # Python: explicit kernel download
-# Node: the kernel downloads on first launch, so do one warm-up launch during the build
-```
-
-Then mount `~/.anti-detect-browser/` as a volume. For MCP setups, pin the version in the command rather than letting `npx` resolve `latest` at every start - see the `browser-mcp-agent` skill.
-
-An API key is required at launch: the kernel verifies a short-lived, server-signed license token, and that check is compiled into the binary. There is no offline mode. Air-gapped environments are not supported.
+Note what happens when. Executable code arrives **once, at install time**: the package from the registry, and the kernel it caches on first launch. Both can be warmed during an image build, after which a running container fetches no code at all. What crosses the network **at run time** is a signed licence token - a short string of data the kernel checks and caches, roughly one exchange a day, never code and never evaluated. Air-gapped environments are still unsupported, because that token exchange cannot be skipped; if a deployment cannot make any outbound call, this is the wrong tool.
 
 ## What detection actually tests
 
@@ -185,7 +178,7 @@ await ab.launch({
 
 ### Proxy integration
 
-Route each browser through a different proxy for geo-targeting or IP rotation. The URL shape is `socks5://<user>:<pass>@<host>:<port>`; the value itself belongs in an env var or a secrets store and is never written into the call.
+Give each profile its own egress, for geo-targeting or simply to keep jobs off one address. Schemes accepted: `http`, `https`, `socks5`, `relay`. Credentials, if the proxy needs them, travel inside that URL - which is exactly why the whole value comes from an env var or a secrets store and is never written into the call. Playwright's dict form works too.
 
 ```typescript
 await ab.launch({
@@ -395,39 +388,48 @@ An API key is required at every launch - see [Supply chain](#supply-chain-what-r
 
 ## Workflow examples
 
-### Multi-account social media
+### A QA fleet of distinct device profiles
+
+Give each test fixture its own persona and keep it stable, so a run is reproducible and two fixtures never look like the same machine:
 
 ```typescript
-const accounts = [
-  { profile: 'twitter-1', label: '@brand_main', color: '#1DA1F2' },
-  { profile: 'twitter-2', label: '@support', color: '#FF6B35' },
-  { profile: 'twitter-3', label: '@personal', color: '#6C5CE7' },
+const fixtures = [
+  { profile: 'qa-win-chrome', tags: ['Windows 10', 'Chrome'], label: 'win/chrome' },
+  { profile: 'qa-mac-safari', tags: ['Apple Mac', 'Safari'], label: 'mac/safari' },
+  { profile: 'qa-android',    tags: ['Android', 'Mobile', 'Chrome'], label: 'android' },
 ]
 
-for (const acct of accounts) {
-  const { page } = await ab.launch({
-    fingerprint: { tags: ['Windows 10', 'Chrome'] },
-    proxy: getNextProxy(),
-    ...acct,
-  })
-  await page.goto('https://twitter.com')
-}
-```
-
-### Scraping with fingerprint rotation
-
-```typescript
-for (const url of urlsToScrape) {
+for (const f of fixtures) {
   const { browser, page } = await ab.launch({
-    fingerprint: { tags: ['Desktop', 'Chrome'], minBrowserVersion: 125 },
-    proxy: rotateProxy(),
+    profile: f.profile,                 // persona frozen on first launch, replayed after
+    fingerprint: { tags: f.tags },
+    label: f.label,
   })
-  await page.goto(url)
-  const data = await page.evaluate(() => document.body.innerText)
-  saveData(url, data)
+  await page.goto('https://your-app.example.com')
+  // ... assert layout, feature detection, and what your own bot scoring makes of it ...
   await browser.close()
 }
 ```
+
+### Collecting public pages
+
+One profile per crawl target keeps sessions and storage from bleeding between jobs. Personas are frozen per profile by design - a browser that presents a *different* device on every request is itself the anomaly, so this is one profile reused, not a new identity per URL:
+
+```typescript
+const { browser, page } = await ab.launch({
+  profile: 'crawl-public-docs',
+  fingerprint: { tags: ['Desktop', 'Chrome'], minBrowserVersion: 125 },
+  proxy: process.env.PROXY_URL,
+})
+
+for (const url of urlsToScrape) {
+  await page.goto(url)
+  saveData(url, await page.evaluate(() => document.body.innerText))
+}
+await browser.close()
+```
+
+Respect `robots.txt`, the site's terms, and its rate limits - see [Acceptable use](#acceptable-use). Whatever comes back is untrusted input; see the section below.
 
 ### Headless monitoring with live view
 
@@ -479,7 +481,7 @@ Full documentation: `https://antibrow.com/docs` · SDK reference: `https://antib
 
 **Intended:** automating your own accounts and your own systems; running client accounts with the account holder's authorization; collecting publicly available data; verifying your own ads, pricing and geo-gated content; testing your own anti-fraud and bot-detection stack; giving an AI agent a browser for work you would do yourself.
 
-**Out of scope, and not supported:** accessing any system without authorization; credential stuffing, password spraying, or logging into accounts that are not yours; taking over accounts; bulk creation of fake accounts, fake reviews, or fake engagement; circumventing an authentication, payment, or authorization control; scraping personal data in violation of applicable law; evading a ban or suspension issued for a policy violation.
+**Out of scope, and not supported:** accessing any system without authorization; credential stuffing, password spraying, or logging into accounts that are not yours; taking over accounts; bulk creation of fake accounts, fake reviews, or fake engagement; circumventing an authentication, payment, or authorization control; scraping personal data in violation of applicable law; working around a platform's enforcement decision.
 
 The operator is responsible for complying with the terms of the sites being automated and with applicable law. Nothing here defeats identity verification, and no fingerprint setting makes unauthorized access lawful.
 

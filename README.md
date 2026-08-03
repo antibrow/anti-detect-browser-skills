@@ -2,11 +2,11 @@
 
 [Agent Skills](https://agentskills.io) for driving a browser that presents **one coherent real device** instead of a headless build: persistent isolated profiles, kernel-level fingerprints, and a per-profile proxy whose exit IP sets timezone and WebRTC. They teach an agent how to launch and manage [AntiBrow](https://antibrow.com) browsers, both by writing code against the SDK (JavaScript **or** Python) and by letting the agent drive the browser directly via MCP.
 
-Typical uses: QA and bot-detection testing against your own site, checking your own ads and pricing from another region, scraping public data, giving an agent a browser that stays logged in, and keeping several accounts you own or are authorized to run from being correlated into one operator. See [Acceptable use](#acceptable-use).
+Typical uses: QA and bot-detection testing against your own site, checking your own ads and pricing from another region, scraping public data, giving an agent a browser that stays logged in, and keeping identities you own or are authorized to operate in genuinely separate profiles. See [Acceptable use](#acceptable-use).
 
 ## Skills in this repo
 
-- **multi-account-isolation** - the operational checklist for keeping accounts you own from being correlated: per-account profile + proxy + timezone pairing, warm-up, verification, and the leaks that survive a perfect fingerprint (IP, cookies, payment, recovery contacts, behaviour). Start here if the question is "what actually ties my accounts together".
+- **multi-account-isolation** - verifying that profiles are actually isolated rather than assuming it: ten concrete checks (timezone vs exit IP, WebRTC, canvas stability across relaunches, duplicate personas or addresses across a fleet), which detection suites to run, what the runtime does with your credentials, and which layers browser isolation cannot cover at all. Start here if the question is "is my setup actually holding?".
 - **anti-detect-browser** - SDK (npm `anti-detect-browser` + PyPI `antibrow`), profiles, fingerprints, proxies, kernel updates, Docker, and the REST API. Use this to write custom scraping, multi-account, or automation scripts.
 - **browser-mcp-agent** - MCP server mode. Use this to let an AI agent (Claude, GPT, etc.) launch and control the browser itself via tool calls, with no code to write.
 
@@ -26,7 +26,7 @@ Installs both skills together and keeps them updatable via `/plugin update`:
 Works with Claude Code and any other agent the `skills` CLI supports:
 
 ```bash
-# account-isolation checklist
+# isolation self-check
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill multi-account-isolation
 
 # SDK / scripting skill
@@ -94,11 +94,12 @@ Both share `~/.anti-detect-browser/`, so a profile created from Node is launchab
 
 From **multi-account-isolation**:
 
-- **The linkage surface** - every layer a platform can use to tie two accounts together, and which ones a browser can and cannot isolate
-- **One account, one of everything** - profile, fingerprint, proxy, timezone, identity data, all unshared
-- **Proxy selection** - sticky vs rotating, residential vs datacenter, matching the account's claimed location
-- **Warm-up and verification** - aging accounts, and checking the setup against CreepJS, whoer, browserleaks, pixelscan, liarjs
-- **Troubleshooting order** - the cheap causes (reused profile, shared IP, timezone mismatch, shared recovery email) before blaming the fingerprint
+- **The configuration invariant** - one identity, one profile, one persona, one egress, one timezone; what a shared cell breaks
+- **Ten concrete checks** - timezone vs exit IP, WebRTC candidates, canvas stability across relaunches, worker vs main thread, one GPU across three interfaces, no duplicate personas or addresses across the fleet
+- **Which suites to run** - CreepJS, whoer, browserleaks WebRTC, pixelscan, and `npx liarjs` for the ~40 rules you can run unattended in CI
+- **Reading a failure** - the cheap causes (reused profile name, duplicate address, clock/address disagreement, a persona that regenerated) before suspecting the fingerprint
+- **Runtime transparency** - where cookies, personas, proxy credentials and the API key actually go, and how to verify it yourself
+- **What isolation cannot cover** - everything outside the browser, stated plainly
 
 From **anti-detect-browser**:
 
@@ -127,7 +128,7 @@ From **browser-mcp-agent**:
   plugin.json       # plugin manifest (all three skills)
   marketplace.json  # lets this repo be added as a Claude Code marketplace
 multi-account-isolation/
-  SKILL.md          # account-linking checklist: profiles, proxies, timezone, warm-up
+  SKILL.md          # isolation self-check: the ten assertions and the suites that verify them
 anti-detect-browser/
   SKILL.md          # SDK (JS + Python) and REST API reference
 browser-mcp-agent/
@@ -147,7 +148,7 @@ browser-mcp-agent/
 
 **Intended:** automating your own accounts and systems; running client accounts with the holder's authorization; collecting publicly available data; verifying your own ads, pricing and geo-gated content; testing your own anti-fraud and bot-detection stack; giving an agent a browser for work you would do yourself.
 
-**Out of scope, and not supported:** accessing any system without authorization; credential stuffing or logging into accounts that are not yours; account takeover; bulk creation of fake accounts, reviews or engagement; circumventing authentication, payment or authorization controls; scraping personal data in violation of applicable law; evading a ban issued for a policy violation.
+**Out of scope, and not supported:** accessing any system without authorization; credential stuffing or logging into accounts that are not yours; account takeover; bulk creation of fake accounts, reviews or engagement; circumventing authentication, payment or authorization controls; scraping personal data in violation of applicable law; working around a platform's enforcement decision.
 
 Complying with the terms of the sites being automated, and with applicable law, is the operator's responsibility. Report abuse or a security issue via the contact at https://antibrow.com.
 

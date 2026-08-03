@@ -43,7 +43,7 @@ Query parameters for `/fingerprints/fetch`: `tags`, `id`, `minBrowserVersion`, `
 }
 ```
 
-The `dataUrl` is a presigned download URL valid for a limited time - download it directly and promptly, no additional API call needed.
+The `dataUrl` is a short-lived presigned link to the profile's **fingerprint data as JSON** - screen geometry, UA, GPU strings, seeds. It is data, not an executable, and nothing on the machine runs it. Fetch it promptly; no additional API call is needed.
 
 ## Docker
 
