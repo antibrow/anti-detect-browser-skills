@@ -56,7 +56,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 \
       libgbm1 libasound2 libpango-1.0-0 libcairo2 fonts-liberation ca-certificates \
     && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir antibrow==0.3.0
+RUN pip install --no-cache-dir antibrow==0.9.0
 RUN python -m antibrow install          # prefetch the kernel at build time, not at run time
 COPY script.py .
 CMD ["xvfb-run", "-a", "python", "script.py"]

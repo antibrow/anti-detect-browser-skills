@@ -1,6 +1,6 @@
 ---
 name: multi-account-isolation
-description: Verify that browser profiles are actually isolated from one another instead of assuming it - confirm each profile's timezone agrees with its own exit IP, that WebRTC exposes only the proxy, that canvas and WebGL hashes stay identical across relaunches of one profile, and that no two profiles share a persona, a cookie jar, or an address. Use when several of your own accounts or test identities run from one machine and the setup needs checking, when a profile tested clean but something still looks off, when choosing which detection suites to run (CreepJS, whoer, browserleaks WebRTC, pixelscan, liarjs), when auditing what a vendor runtime does with API and proxy credentials, or when asking which layers browser isolation cannot cover at all. Also for 'profile isolation check', 'fingerprint consistency test', 'timezone mismatch', 'WebRTC leak', 'canvas hash unstable', 'account association', '防关联', '多账号', '隔离自检'. The SDK is anti-detect-browser; MCP control is browser-mcp-agent.
+description: Verify that browser profiles are actually isolated from one another instead of assuming it - confirm each profile's timezone agrees with its own exit IP, that WebRTC exposes only the proxy, that canvas and WebGL hashes stay identical across relaunches of one profile, and that no two profiles share a persona, a cookie jar, or an address. Use when several of your own accounts or test identities run from one machine and the setup needs checking, when a profile tested clean but something still looks off, when choosing which detection suites to run (CreepJS, whoer, browserleaks WebRTC, pixelscan, liarjs), when auditing what a vendor runtime does with API and proxy credentials, or when asking which layers browser isolation cannot cover at all. Also for 'profile isolation check', 'fingerprint consistency test', 'timezone mismatch', 'WebRTC leak', 'canvas hash unstable', 'account association', 'temporary profile', '防关联', '多账号', '隔离自检'. The SDK is anti-detect-browser; MCP is browser-mcp-agent.
 license: MIT
 ---
 
@@ -43,7 +43,7 @@ for (const id of identities) {
     profile: id.profile,              // isolated cookies, storage, login state
     proxy: id.proxy,                  // from the environment, one per identity
     fingerprint: { tags: id.tags },   // drawn once, frozen, replayed after
-    label: id.profile,                // floating label so windows are tellable apart
+    label: id.profile,                // address-bar tag drawn by the kernel, unreadable from the page
   })
   // ... run the checks below, then ...
   await browser.close()
@@ -79,9 +79,10 @@ Run each profile **through its own proxy**, and assert rather than eyeball.
 | 5 | One GPU across three interfaces | CreepJS, or read WebGL / WebGL2 / WebGPU directly | `adapter.info.vendor` does not match the unmasked WebGL renderer family |
 | 6 | No two profiles share a persona | Diff `browser.persona` across the fleet | Two profiles report the same UA, screen geometry and seeds |
 | 7 | No two profiles share an address | Collect `browser.public_ip` for the fleet | Two identities came out of the same exit, or the same /24 |
-| 8 | Cookie jars are separate | Inspect `~/.anti-detect-browser/<profile>/` | One profile directory holds state that belongs to another identity |
-| 9 | Whole-stack coherence | [whoer.net](https://whoer.net), [pixelscan.net](https://pixelscan.net) | IP, timezone and locale disagree at a glance |
-| 10 | Consistency rules in CI | `npx liarjs` ([liarjs.dev](https://liarjs.dev)) | Any of ~40 open-source cross-layer rules fail - this is the one that runs unattended |
+| 8 | Cookie jars are separate | Compare `browser.profile_dir` across the fleet, then inspect `user-data/` inside each | Two identities resolve to one directory, or one directory holds state belonging to another identity |
+| 9 | One identity, one profile tree | Confirm every launch of a name passes the same `temporary` value | A managed `gmail` and a temporary `gmail` are two different profiles with two personas and two cookie jars. A script that disagrees with itself about `temporary` is running two identities under one name and will look like a logged-out session, not like a bug |
+| 10 | Whole-stack coherence | [whoer.net](https://whoer.net), [pixelscan.net](https://pixelscan.net) | IP, timezone and locale disagree at a glance |
+| 11 | Consistency rules in CI | `npx liarjs` ([liarjs.dev](https://liarjs.dev)) | Any of ~40 open-source cross-layer rules fail - this is the one that runs unattended |
 
 Checks 1, 3 and 7 are the ones worth wiring into CI: they are cheap, deterministic, and they catch the defects that actually recur.
 
@@ -89,7 +90,7 @@ Checks 1, 3 and 7 are the ones worth wiring into CI: they are cheap, determinist
 
 Work down in this order, cheapest first - a fingerprint is almost never the actual cause:
 
-1. **Profile name reused?** `list_profiles`, or look at `~/.anti-detect-browser/`. Two identities in one directory explains everything else.
+1. **Profile name reused?** `list_profiles`, or compare `browser.profile_dir` per identity. Two identities in one directory explains everything else. Directories are named after the profile's id, not its name, so match on `profile.json` inside rather than on the folder name.
 2. **Same address twice?** Confirm each `public_ip` is distinct.
 3. **Clock disagrees with the address?** Print `browser.timezone` and `browser.public_ip` together.
 4. **Persona regenerated?** If the canvas hash moved between launches, the profile is not frozen - check whether `profile_dir` or the cache directory changed under it.
@@ -101,8 +102,9 @@ Any tool that drives logged-in sessions receives cookies and proxy credentials, 
 
 | Artifact | Where it lives | Who sees it |
 |---|---|---|
-| Cookies, `localStorage`, login state | `~/.anti-detect-browser/<profile>/` on your disk | Local. Cloud profile sync is a separate paid-plan feature - check whether it is on before assuming a profile stays on the machine |
+| Cookies, `localStorage`, login state | `~/.anti-detect-browser/profiles/<id>/user-data/` on your disk, or `profiles-temp/<id>/` for a temporary profile | Local. Cloud sync is opt-in per profile: a launch never creates a cloud profile by itself, and `sync: true` is what puts one there. Check which profiles sync before assuming they stay on the machine |
 | Persona (`persona.json`) | same profile directory, written once and frozen | Local |
+| Profile identity record (`profile.json`) | same profile directory; the id it holds is what names the directory | Local. It is why a rename does not cost a persona, and why the folder name is not the profile name |
 | Proxy URL and its credentials | passed to the kernel at launch; answered in the network stack (HTTP 407 / SOCKS5 RFC 1929) so no extension holds them | The kernel process and your proxy provider |
 | API key | your environment, or `~/.antibrow/license.key` | Exchanged with `antibrow.com` for a short-lived license token, roughly once a day |
 
@@ -116,7 +118,7 @@ python -m antibrow info          # kernels, profiles, license state, cache dir
 browser.plan.redacted_args()     # exact kernel command line, secrets masked - safe to paste in a bug report
 ```
 
-Point it at a proxy whose logs you can read, or at a local MITM proxy, and watch what leaves the machine during a launch. Pin the SDK version and check the published hash (`npm view anti-detect-browser@2.2.0 dist.integrity`) so the code you audited is the code that runs. If a deployment must not phone home at all, this is the wrong tool: license verification is compiled into the kernel and there is no offline mode.
+Point it at a proxy whose logs you can read, or at a local MITM proxy, and watch what leaves the machine during a launch. Pin the SDK version and check the published hash (`npm view anti-detect-browser@2.8.0 dist.integrity`) so the code you audited is the code that runs. If a deployment must not phone home at all, this is the wrong tool: license verification is compiled into the kernel and there is no offline mode.
 
 ## What isolation cannot cover
 
@@ -127,7 +129,7 @@ Worth stating plainly, because a clean check list invites the wrong conclusion:
 - **Identity verification.** A document check is not a fingerprint problem.
 - **A platform's own decision.** Nothing here changes how a site chooses to treat an account.
 
-If the ten checks pass and something still looks wrong, the cause is in this list, not in the browser layer.
+If every check passes and something still looks wrong, the cause is in this list, not in the browser layer.
 
 ## Acceptable use
 

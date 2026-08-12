@@ -73,8 +73,8 @@ Want to check any of that yourself: [CreepJS](https://abrahamjuliot.github.io/cr
 ## Two SDKs, one profile format
 
 ```bash
-npm install anti-detect-browser@2.2.0 playwright-core   # Node >= 18; pin the version
-pip install antibrow==0.3.0                             # Python 3.9 - 3.13
+npm install anti-detect-browser@2.8.0 playwright-core   # Node >= 18; pin the version
+pip install antibrow==0.9.0                             # Python 3.9 - 3.13
 ```
 
 ```typescript
@@ -95,7 +95,7 @@ Both share `~/.anti-detect-browser/`, so a profile created from Node is launchab
 From **multi-account-isolation**:
 
 - **The configuration invariant** - one identity, one profile, one persona, one egress, one timezone; what a shared cell breaks
-- **Ten concrete checks** - timezone vs exit IP, WebRTC candidates, canvas stability across relaunches, worker vs main thread, one GPU across three interfaces, no duplicate personas or addresses across the fleet
+- **Eleven concrete checks** - timezone vs exit IP, WebRTC candidates, canvas stability across relaunches, worker vs main thread, one GPU across three interfaces, no duplicate personas or addresses across the fleet
 - **Which suites to run** - CreepJS, whoer, browserleaks WebRTC, pixelscan, and `npx liarjs` for the ~40 rules you can run unattended in CI
 - **Reading a failure** - the cheap causes (reused profile name, duplicate address, clock/address disagreement, a persona that regenerated) before suspecting the fingerprint
 - **Runtime transparency** - where cookies, personas, proxy credentials and the API key actually go, and how to verify it yourself
@@ -103,22 +103,25 @@ From **multi-account-isolation**:
 
 From **anti-detect-browser**:
 
-- **JS/TS SDK** - `AntiDetectBrowser`, `launch()` options, `applyFingerprint()` for existing Playwright setups, kernel update APIs
+- **JS/TS SDK** - `AntiDetectBrowser`, `launch()` options, `applyFingerprint()` for existing Playwright setups, kernel update APIs, and kernels named by Chrome major (`150`, `151`) since 2.8.0
 - **Python SDK** - `launch()` / `launch_async()` / `launch_persistent_context()` / `prepare_launch()`, the `Antibrow` handle, error types, `python -m antibrow` CLI, env vars, Docker
 - **Framework integrations** - hand the CDP endpoint to browser-use, crawl4ai, Scrapling, Puppeteer, or plain Playwright
-- **Profile management** - persistent identities with cookies, storage, and a frozen persona
+- **Profile management** - persistent identities with cookies, storage, and a frozen persona, in id-named directories that survive a rename
+- **Android profiles** - `deviceType: 'android'` gives a profile a real phone identity on a desktop host; the surface table and its two constraints are in `references/android-profiles.md`
+- **Automation at scale** - `temporary` profiles kept out of the profile manager, `clearTemporaryProfiles()` to sweep them, `focusWindow: false` to launch without stealing focus, and opt-in cloud sync
 - **Detection model** - the cross-layer consistency checks that actually decide whether a browser passes
 - **Proxies** - native `http`/`https`/`socks5`/`relay` auth, geo-matched timezone and WebRTC
-- **Visual identification** - floating labels, window titles, theme colors for multi-window workflows
+- **Visual identification** - kernel-drawn address-bar labels the page cannot read back, for telling many windows apart
 - **Live View** - real-time headless browser streaming to the dashboard
 - **Plans, concurrency, and licensing** - kernel-enforced concurrent-browser caps; MIT SDK vs closed-source kernel
 - **REST API** - all public `/api/v1/` endpoints for fingerprints and profiles
 
 From **browser-mcp-agent**:
 
-- **MCP server setup** - `npx -y anti-detect-browser@2.2.0 --mcp` (pinned) with `${VAR}` key expansion, or a Python stdio server via `antibrow[mcp]`
+- **MCP server setup** - `npx -y anti-detect-browser@2.8.0 --mcp` (pinned) with `${VAR}` key expansion, or a Python stdio server via `antibrow[mcp]`
 - **Treating page content as untrusted input** - the indirect-prompt-injection rules for an agent that both reads pages and picks the next tool call
 - **Available tools** - `launch_browser`, `navigate`, `click`/`fill`, `screenshot`, `get_content`, profile and proxy tools, Live View controls
+- **The four `launch_browser` options that matter for agents** - `temporary`, `focusWindow`, `deviceType`, `realFingerprint`
 - **Agent-driven workflows** - example task flows with no user-written code, plus the operational gotchas (concurrency locks, headless, session hygiene)
 
 ## Repo structure
@@ -138,7 +141,7 @@ browser-mcp-agent/
 ## Security and supply chain
 
 - **Secrets come from the environment.** No sample in these skills contains a literal API key or a proxy password. In MCP configs the key is a `${ANTI_DETECT_BROWSER_KEY}` reference, not a value, because `.mcp.json` gets committed.
-- **Pin the version.** Bare `npx anti-detect-browser` resolves `latest` at every start. Pin it, commit a lockfile, use `npm ci`, and verify a release before adopting it: `npm view anti-detect-browser@2.2.0 dist.integrity`. The npm package declares no install scripts; its dependencies are `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk`.
+- **Pin the version.** Bare `npx anti-detect-browser` resolves `latest` at every start. Pin it, commit a lockfile, use `npm ci`, and verify a release before adopting it: `npm view anti-detect-browser@2.8.0 dist.integrity`. The npm package declares no install scripts; its dependencies are `ws`, `socks`, `yauzl`, `adm-zip`, `@modelcontextprotocol/sdk`.
 - **Two artifacts land on the machine**: the MIT SDK from npm/PyPI, and a closed-source Chromium kernel downloaded once from AntiBrow's CDN into `~/.anti-detect-browser/`. Prefetch both at image-build time if the runtime must not fetch anything. Installed kernels are never swapped underneath a running profile.
 - **License checks are online-only.** The kernel verifies a short-lived server-signed token at startup, roughly once a day in practice. There is no offline mode; air-gapped deployments are not supported.
 - **Profile directories hold live cookies and session tokens.** Treat `~/.anti-detect-browser/` as credential material - keep it out of images, shared backups, and issue attachments. `browser.plan.redacted_args()` gives a secrets-masked command line for bug reports.

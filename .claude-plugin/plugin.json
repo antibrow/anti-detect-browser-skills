@@ -1,7 +1,7 @@
 {
   "name": "anti-detect-browser-skills",
   "description": "Drive a browser that presents one coherent real device: AntiBrow's kernel-level fingerprints, persistent isolated profiles, and per-profile proxies with matching timezone and WebRTC - from the JavaScript/Python SDK or via MCP tool calls. For QA and bot-detection testing, regional ad and pricing checks, public-data scraping, agent-driven browsing, and keeping accounts you own or are authorized to run from being correlated.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "author": {
     "name": "AntiBrow",
     "url": "https://antibrow.com"
