@@ -9,12 +9,13 @@ Typical uses: QA and bot-detection testing against your own site, checking your 
 - **multi-account-isolation** - verifying that profiles are actually isolated rather than assuming it: ten concrete checks (timezone vs exit IP, WebRTC, canvas stability across relaunches, duplicate personas or addresses across a fleet), which detection suites to run, what the runtime does with your credentials, and which layers browser isolation cannot cover at all. Start here if the question is "is my setup actually holding?".
 - **anti-detect-browser** - SDK (npm `anti-detect-browser` + PyPI `antibrow`), profiles, fingerprints, proxies, kernel updates, Docker, and the REST API. Use this to write custom scraping, multi-account, or automation scripts.
 - **browser-mcp-agent** - MCP server mode. Use this to let an AI agent (Claude, GPT, etc.) launch and control the browser itself via tool calls, with no code to write.
+- **multi-account-scraping** - running the same scrape or task across many accounts at once, each in its own profile with its own fingerprint, cookies and exit IP, and reading data from sites that need a session or that answer a plain HTTP scraper with a captcha. One command per site returns JSON, so there are no selectors to write or repair: Amazon, Walmart, Google, DuckDuckGo, Reddit, X, Medium, Yelp, Indeed, Hacker News, GitHub, PyPI, npm. Also covers writing a new adapter, and the domain allowlist plus SHA-256 pinning that make a third-party one safe in a profile that holds live logins. Use this when the goal is *data from a site*, not *a browser*.
 
 ## Install
 
 ### As a Claude Code plugin (recommended)
 
-Installs both skills together and keeps them updatable via `/plugin update`:
+Installs all four skills together and keeps them updatable via `/plugin update`:
 
 ```
 /plugin marketplace add antibrow/anti-detect-browser-skills
@@ -35,7 +36,10 @@ npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill an
 # MCP agent-driven skill
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill browser-mcp-agent
 
-# both
+# multi-account scraping / per-site JSON commands
+npx skills add https://github.com/antibrow/anti-detect-browser-skills --skill multi-account-scraping
+
+# all of them
 npx skills add https://github.com/antibrow/anti-detect-browser-skills --all
 ```
 
@@ -116,6 +120,15 @@ From **anti-detect-browser**:
 - **Plans, concurrency, and licensing** - kernel-enforced concurrent-browser caps; MIT SDK vs closed-source kernel
 - **REST API** - all public `/api/v1/` endpoints for fingerprints and profiles
 
+From **multi-account-scraping**:
+
+- **One command per site** - `recipe list|info|run`, arguments and declared hosts printed before anything runs, and `--jq` so an agent asks for two fields instead of a whole payload
+- **Fanout** - one recipe across N profiles at once, each with its own persona, cookies and exit IP; the concurrency cap is read from the plan before anything is queued
+- **Why a third-party recipe is safe in a logged-in profile** - the domain allowlist enforced at the network layer (not inside the helpers, because page code can always call `fetch`), SHA-256 pinning, file-versus-registry agreement, and unreviewed recipes confined to throwaway profiles
+- **Which recipes need a clean residential exit** - a dated run of what returned data and what got consent-walled or challenged, and why that is not fixable in the parsing code
+- **Writing one** - the single-file format, `meta.entry` argument interpolation for pages that only exist per query, the three auth rungs, and the pull-request gate
+- **Recipe output is untrusted input** - the same indirect-prompt-injection rule as MCP mode
+
 From **browser-mcp-agent**:
 
 - **MCP server setup** - `npx -y anti-detect-browser@2.8.0 --mcp` (pinned) with `${VAR}` key expansion, or a Python stdio server via `antibrow[mcp]`
@@ -136,6 +149,8 @@ anti-detect-browser/
   SKILL.md          # SDK (JS + Python) and REST API reference
 browser-mcp-agent/
   SKILL.md          # MCP server mode reference
+multi-account-scraping/
+  SKILL.md          # per-site JSON commands, fanout across identities, how to write one
 ```
 
 ## Security and supply chain
@@ -154,6 +169,24 @@ browser-mcp-agent/
 **Out of scope, and not supported:** accessing any system without authorization; credential stuffing or logging into accounts that are not yours; account takeover; bulk creation of fake accounts, reviews or engagement; circumventing authentication, payment or authorization controls; scraping personal data in violation of applicable law; working around a platform's enforcement decision.
 
 Complying with the terms of the sites being automated, and with applicable law, is the operator's responsibility. Report abuse or a security issue via the contact at https://antibrow.com.
+
+## Recipes
+
+The **multi-account-scraping** skill covers a layer above the browser: one command per site
+that returns JSON, published in
+[antibrow/recipes](https://github.com/antibrow/recipes) and shared by both SDKs.
+
+```bash
+anti-detect-browser recipe run google/search --profile shopper-01 --jq '.items[].title'
+anti-detect-browser recipe fanout amazon/search --profiles 'shopper-*' --concurrency 4
+```
+
+Covered today: Google, Amazon, Walmart, Reddit, X, Medium, Yelp, Indeed, Hacker
+News, DuckDuckGo, GitHub, PyPI, npm, plus exit-IP and fingerprint checks. Several
+of those answer a plain HTTP scraper with a captcha, which is the point of
+running inside a profile that has its own identity and its own exit. Requests for
+platforms behind Cloudflare, DataDome, PerimeterX or Akamai are welcome - adding
+a site is a pull request on the recipes repo, not a release of the SDK.
 
 ## Related
 

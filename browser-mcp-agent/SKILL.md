@@ -108,6 +108,16 @@ The browsing set - what an agent actually needs to do the work:
 | `click` / `fill` | Interact with page elements |
 | `list_sessions` | List running browser instances |
 
+The recipe set - for when the task is *data from a site* rather than *a browser*. Prefer these over hand-driving a page: they return JSON in one call and take a `jq` filter, so the agent reads two fields instead of a whole page:
+
+| Tool | What it does |
+|------|-------------|
+| `list_recipes` | What task-level site adapters are published, and what each takes |
+| `run_recipe` | Run one and get its JSON. `temporary: true` for an anonymous run, `profile` for an identity that stays signed in |
+| `fanout_recipe` | Run one across several profiles at once, each with its own identity and exit IP |
+
+The **multi-account-scraping** skill covers those three, the published set, and what to do when a recipe reports a challenge instead of data.
+
 `launch_browser` takes more than a profile name. Four options decide what kind of browser the agent gets:
 
 | Option | Why an agent setup wants it |
@@ -168,5 +178,6 @@ Rules for driving this server:
 ## Related Skills
 
 - **anti-detect-browser** - full SDK and REST API reference for writing custom Playwright-based automation, scraping, and multi-account scripts directly
+- **multi-account-scraping** - `list_recipes` / `run_recipe` / `fanout_recipe`: one command per site returning JSON, and the same command across many identities
 - **multi-account-isolation** - the checklist for keeping accounts from being linked when an agent operates several of them
 - **antibrow dashboard** (`https://antibrow.com`) - manage profiles, watch Live View sessions, get your API key

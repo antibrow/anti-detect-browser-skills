@@ -1,7 +1,7 @@
 {
   "name": "anti-detect-browser-skills",
-  "description": "Drive a browser that presents one coherent real device: AntiBrow's kernel-level fingerprints, persistent isolated profiles, and per-profile proxies with matching timezone and WebRTC - from the JavaScript/Python SDK or via MCP tool calls. For QA and bot-detection testing, regional ad and pricing checks, public-data scraping, agent-driven browsing, and keeping accounts you own or are authorized to run from being correlated.",
-  "version": "0.4.0",
+  "description": "Drive a browser that presents one coherent real device: AntiBrow's kernel-level fingerprints, persistent isolated profiles, and per-profile proxies with matching timezone and WebRTC - from the JavaScript/Python SDK, via MCP tool calls, or as task-level site recipes that return JSON and can run across many identities at once. For QA and bot-detection testing, regional ad and pricing checks, public-data scraping, agent-driven browsing, and keeping accounts you own or are authorized to run from being correlated.",
+  "version": "0.5.0",
   "author": {
     "name": "AntiBrow",
     "url": "https://antibrow.com"
@@ -20,11 +20,15 @@
     "scraping",
     "automation",
     "playwright",
-    "mcp"
+    "mcp",
+    "recipes",
+    "site-adapter",
+    "json-api"
   ],
   "skills": [
     "./anti-detect-browser",
     "./multi-account-isolation",
-    "./browser-mcp-agent"
+    "./browser-mcp-agent",
+    "./multi-account-scraping"
   ]
 }

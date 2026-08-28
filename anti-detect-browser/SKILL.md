@@ -573,7 +573,25 @@ The operator is responsible for complying with the terms of the sites being auto
 
 Report abuse of these packages, or a security issue in them, to the contact on `https://antibrow.com`.
 
+## Recipes: a command per site instead of a scraper per site
+
+Above the SDK there is a task layer: `anti-detect-browser recipe run <site>/<command>` (or `python -m antibrow recipe run`) returns structured JSON, and `recipe fanout` runs the same command across several profiles at once. The adapters live in their own public repository and are shared by both SDKs, so adding a site is a pull request there rather than a release of the package.
+
+```bash
+anti-detect-browser recipe list
+anti-detect-browser recipe run reddit/hot --temporary --jq '.items[].title'
+anti-detect-browser recipe fanout amazon/search --profiles 'shopper-*' --concurrency 4
+```
+
+```python
+from antibrow import run_recipe
+print(run_recipe("github/repo", temporary=True, args={"owner": "microsoft", "name": "playwright"}).value)
+```
+
+A recipe may only reach the hosts it declares, is pinned by SHA-256, and runs by default only if a maintainer has reviewed it. The **multi-account-scraping** skill is the full reference, including which recipes need a clean residential exit before they answer at all.
+
 ## Related Skills
 
 - **multi-account-isolation** - the operational checklist for keeping accounts unlinked: per-account profile/proxy/timezone pairing, what leaks past a perfect fingerprint, and what isolation cannot fix
 - **browser-mcp-agent** - run as an MCP server so an AI agent drives the browser itself via tool calls, no SDK code required
+- **multi-account-scraping** - the task layer above this one: one command per site returning JSON, and `fanout` across many identities
